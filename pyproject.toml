@@ -1,0 +1,19 @@
+[project]
+name = "sandals"
+version = "0.1.0"
+description = "JSON-defined SQLite database bindings"
+authors = [{ name = "nogjam", email = "nathaniel-j-jones@proton.me" }]
+license = { text = "MIT" }
+readme = "README.adoc"
+requires-python = ">=3.10"
+dependencies = []
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.behave]
+paths = "test"
+
+[tool.poetry.group.test.dependencies]
+behave = "^1.2.6"

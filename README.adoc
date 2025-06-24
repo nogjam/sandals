@@ -1,0 +1,3 @@
+= Bedouin
+
+SQLite migration tool with JSON schema definition
