@@ -1,3 +1,12 @@
-= Bedouin
+= Sandals
 
-SQLite migration tool with JSON schema definition
+JSON-defined SQLite data bindings.
+
+.Speaking of Jesus Christ, the Son of God:
+[quote,John the Baptist,Mark 1:7 NET]
+One more powerful than I am is coming after me; I am not worthy to bend down and untie the strap of his sandals.
+
+Scripture quoted by permission.
+Quotations designated (NET) are from the NET Bible® copyright ©1996, 2019 by Biblical Studies Press, L.L.C.
+https://netbible.com
+All rights reserved
