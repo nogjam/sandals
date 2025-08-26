@@ -1,7 +1,8 @@
 Feature: Sandals
     # In order to make database schema definition easier,
     # As a developer,
-    # I want to be able to define a schema with plain JSON.
+    # I want to be able to define Python data classes and corresponding SQLite
+    # schemas with plain JSON.
 
     Scenario: Simple schema
         Given the following JSON schema
@@ -9,10 +10,10 @@ Feature: Sandals
             {
                 "version-id": "abcdefg",
                 "version-sequence": 1,
-                "tables": [
+                "classes": [
                     {
-                        "name": "data",
-                        "columns": [
+                        "name": "Data",
+                        "properties": [
                             {
                                 "name": "number",
                                 "type": "int"
@@ -35,10 +36,4 @@ Feature: Sandals
               description TEXT NOT NULL
             )
             """
-        And we should be able to persist the following records
-            """
-            [
-                (1, "The first"),
-                (2, "The second"),
-            ]
-            """
+        And we should be able to persist a record using the generated Python code
