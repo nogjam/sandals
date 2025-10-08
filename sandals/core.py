@@ -1,6 +1,7 @@
 """Core functionality of sandals."""
 
 from sandals import config
+from sandals.util import pascal_case_to_snake_case
 
 
 tab: str = " " * 2
@@ -23,31 +24,41 @@ def generate_python_from_json_data(data: dict) -> str:
     with open(config.TEMPLATE_PATH, "r") as f:
         template: str = f.read()
 
-    template.replace(
+    return template.replace(
         f"# {config.TEMPLATE_LOC_GENERATED_CLASSES}", _generate_dataclass_code(data)
     )
-    return template
+
+
+SQLITE_TYPE_MAPPING: dict[str, str] = {
+    "int": "INTEGER",
+    "float": "REAL",
+    "str": "TEXT",
+}
 
 
 def _generate_dataclass_code(data: dict) -> str:
-    code: str = ""
     tab: str = " " * 4
+    code: str = ""
     for c in data["classes"]:
-        # TODO: Remove AI creativity.
-        code += f"class {c['name'].capitalize()}(DataClass):\n"
-        code += f"{tab}table_name: str = '{c['name']}'\n"
-        fields = [col["name"] for col in c["columns"]]
-        code += f"{tab}_fields: list[str] = {fields}\n\n"
-        code += f"{tab}def __init__(self, "
-        init_params = [f"{col['name']}: {col['type']}" for col in c["columns"]]
-        code += ", ".join(init_params) + ") -> None:\n"
-        for col in c["columns"]:
-            code += f"{tab*2}self.{col['name']}: {col['type']} = {col['name']}\n"
-        code += "\n\n"
-        code += f"def insert_{c['name']}(conn: sqlite3.Connection, {c['name']}: {c['name'].capitalize()}) -> None:\n"
-        code += f"{tab}placeholders = ', '.join('?' * len({c['name']}._fields))\n"
-        code += f"{tab}columns = ', '.join({c['name']}._fields)\n"
-        code += f"{tab}sql = f'INSERT INTO {c['name']} ({{columns}}) VALUES ({{placeholders}})'\n"
-        code += f"{tab}conn.execute(sql, {c['name']}.marshall_values())\n"
-        code += f"{tab}conn.commit()\n\n\n"
+        code += f'class {c["name"]}(DataClass):\n'
+        code += f'{tab}table_name: str = "{pascal_case_to_snake_case(c["name"])}"\n'
+        code += f"{tab}fields: list[Field] = [\n"
+        for p in c["properties"]:
+            code += (
+                f'{tab}{tab}Field("{p["name"]}", "{SQLITE_TYPE_MAPPING[p["type"]]}"),\n'
+            )
+        code += f"{tab}]\n"
+        code += f"\n"
+        code += f"{tab}def __init__(\n"
+        code += f"{tab}{tab}self,\n"
+        for p in c["properties"]:
+            code += f"{tab}{tab}{p["name"]}: {p["type"]},\n"
+        code += f"{tab}) -> None:\n"
+        for p in c["properties"]:
+            code += f"{tab}{tab}if not isinstance({p["name"]}, {p["type"]}):\n"
+            code += (
+                f'{tab}{tab}{tab}raise TypeError("\'{p["name"]}\' is not of type \'{p["type"]}\'")\n'
+            )
+        for p in c["properties"]:
+            code += f"{tab}{tab}self.{p["name"]}: {p["type"]} = {p["name"]}\n"
     return code

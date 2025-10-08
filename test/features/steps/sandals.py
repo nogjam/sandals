@@ -1,7 +1,6 @@
-import difflib
 import json
 
-from behave import *
+from behave import *  # type: ignore # Star imports are generally a bad idea, but we're doing one anyway, encouraged by Behave.
 from behave.runner import Context
 
 from sandals.core import generate_sql_schema_from_json_data
@@ -9,7 +8,7 @@ from sandals.core import generate_sql_schema_from_json_data
 
 @given("the following JSON schema")
 def _(ctx: Context) -> None:
-    ctx.json_schema = json.loads(ctx.text)  # type: ignore # We can assume ctx.text is of type str.
+    ctx.json_schema = json.loads(ctx.text)  # type: ignore # Assume ctx.text is of type str.
 
 
 @when("we run the generate command")

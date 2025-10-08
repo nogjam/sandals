@@ -3,29 +3,41 @@
 import sqlite3
 
 
+class Field:
+    def __init__(self, name: str, sql_type: str) -> None:
+        self.name: str = name
+        self.sql_type: str = sql_type
+
+
 class DataClass:
     table_name: str
-    _fields: list[str]
+    fields: list[Field]
 
     def marshall_values(self) -> tuple:
-        return tuple(getattr(self, field) for field in self._fields)
+        return tuple(getattr(self, f.name) for f in self.fields)
 
 
-# SANDALS::GENERATED_CLASSES
+def create_table_for(conn: sqlite3.Connection, data_class: type[DataClass]) -> None:
+    tab: str = " " * 4
+    sql: str = f"CREATE TABLE IF NOT EXISTS {data_class.table_name} (\n"
+    sql += f"{tab}row_id INTEGER PRIMARY KEY,\n"
+    last_field: Field = data_class.fields[-1]
+    for f in data_class.fields:
+        sql += f"{tab}{f.name} {f.sql_type} NOT NULL"
+        if f is not last_field:
+            sql += ","
+        sql += "\n"
+    sql += ");"
+    conn.execute(sql)
+    conn.commit()
 
 
-class Record(DataClass):
-    table_name: str = "record"
-    _fields: list[str] = ["number", "description"]
-
-    def __init__(self, number: int, description: str) -> None:
-        self.number: int = number
-        self.description: str = description
-
-
-def insert_record(conn: sqlite3.Connection, record: Record) -> None:
-    placeholders: str = ", ".join("?" * len(record._fields))
-    columns: str = ", ".join(record._fields)
+def insert_record(conn: sqlite3.Connection, record: DataClass) -> None:
+    placeholders: str = ", ".join("?" * len(record.fields))
+    columns: str = ", ".join(f.name for f in record.fields)
     sql: str = f"INSERT INTO {record.table_name} ({columns}) VALUES ({placeholders})"
     conn.execute(sql, record.marshall_values())
     conn.commit()
+
+
+# SANDALS::GENERATED_CLASSES

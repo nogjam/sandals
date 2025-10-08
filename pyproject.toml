@@ -17,3 +17,7 @@ paths = "test"
 
 [tool.poetry.group.test.dependencies]
 behave = "^1.2.6"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.2"
+
