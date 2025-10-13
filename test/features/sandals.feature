@@ -15,8 +15,12 @@ Feature: Sandals
                         "name": "Data",
                         "properties": [
                             {
-                                "name": "number",
+                                "name": "count",
                                 "type": "int"
+                            },
+                            {
+                                "name": "number",
+                                "type": "float"
                             },
                             {
                                 "name": "description",
@@ -30,9 +34,10 @@ Feature: Sandals
         When we run the generate command
         Then the following SQL should be generated
             """
-            CREATE TABLE IF NOT EXISTS data (
+            CREATE TABLE IF NOT EXISTS Data (
               row_id INTEGER PRIMARY KEY,
-              number INTEGER NOT NULL,
+              count INTEGER NOT NULL,
+              number REAL NOT NULL,
               description TEXT NOT NULL
             )
             """
