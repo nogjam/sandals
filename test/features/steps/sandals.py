@@ -34,7 +34,9 @@ def _(ctx: Context) -> None:
 @then("the following SQL should be generated")
 def _(ctx: Context) -> None:
     expected: str = ctx.text  # type: ignore # We can assume ctx.text is of type str.
-    assert NAME_CAP.sql_result.strip(" \n") == expected.strip(" \n")
+    actual: str = NAME_CAP.sql_result.strip(" \n")
+    expected = expected.strip(" \n")
+    assert actual == expected, f"{actual} != {expected}"
 
 
 @then("we should be able to persist the following records")

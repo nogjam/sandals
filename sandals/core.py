@@ -16,7 +16,7 @@ def generate_sql_schema_from_json_data(data: dict) -> str:
     k_prop_type: str = "type"
     schema: str = ""
     for class_ in data[k_classes]:
-        schema += f"\nCREATE TABLE IF NOT EXISTS {class_[k_name]} (\n"
+        schema += f"\nCREATE TABLE IF NOT EXISTS {pascal_case_to_snake_case(class_[k_name])} (\n"
         schema += f"{tab}row_id INTEGER PRIMARY KEY,\n"
         for prop in class_[k_properties]:
             schema += (

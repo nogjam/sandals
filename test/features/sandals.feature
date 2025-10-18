@@ -12,7 +12,7 @@ Feature: Sandals
                 "version-sequence": 1,
                 "classes": [
                     {
-                        "name": "Data",
+                        "name": "SimpleData",
                         "properties": [
                             {
                                 "name": "count",
@@ -34,7 +34,7 @@ Feature: Sandals
         When we run the generate command
         Then the following SQL should be generated
             """
-            CREATE TABLE IF NOT EXISTS Data (
+            CREATE TABLE IF NOT EXISTS simple_data (
               row_id INTEGER PRIMARY KEY,
               count INTEGER NOT NULL,
               number REAL NOT NULL,
