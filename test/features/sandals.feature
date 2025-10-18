@@ -32,13 +32,9 @@ Feature: Sandals
             }
             """
         When we run the generate command
-        Then the following SQL should be generated
-            """
-            CREATE TABLE IF NOT EXISTS simple_data (
-              row_id INTEGER PRIMARY KEY,
-              count INTEGER NOT NULL,
-              number REAL NOT NULL,
-              description TEXT NOT NULL
-            )
-            """
-        And we should be able to persist a record using the generated Python code
+        Then we should be able to persist the following records using the generated code
+            | count | number | description |
+            | 1     | 95.7   | KJR-FM      |
+            | 4     | 107.7  | The End     |
+            | 5     | 105.3  | Spirit      |
+            | 8     | 98.1   | KING-FM     |

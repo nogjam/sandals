@@ -5,7 +5,7 @@ description = "JSON-defined SQLite database bindings"
 authors = [{ name = "nogjam", email = "nathaniel-j-jones@proton.me" }]
 license = { text = "MIT" }
 readme = "README.adoc"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = []
 
 [build-system]
