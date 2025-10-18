@@ -1,0 +1,30 @@
+{
+  "folders": [
+    {
+      "path": ""
+    }
+  ],
+  "settings": {},
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Behave: current file",
+        "type": "debugpy",
+        "request": "launch",
+        "module": "behave",
+        "console": "integratedTerminal",
+        "args": [
+          "${file}"
+        ]
+      },
+      {
+        "name": "Python Debugger: debug.py",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/debug.py",
+        "console": "integratedTerminal"
+      }
+    ]
+  }
+}
