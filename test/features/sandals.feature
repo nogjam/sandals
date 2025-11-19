@@ -39,6 +39,35 @@ Feature: Sandals
             | 5     | 105.3  | Spirit      |
             | 8     | 98.1   | KING-FM     |
 
+    Scenario: One-to-many plain ol' data relationship
+        Given the following JSON schema
+            """
+            {
+                "version-id": "abcdefg",
+                "version-sequence": 1,
+                "classes": [
+                    {
+                        "name": "PodOneToMany",
+                        "properties": [
+                            {
+                                "name": "title",
+                                "type": "str"
+                            },
+                            {
+                                "name": "integers",
+                                "type": "list[int]"
+                            }
+                        ]
+                    }
+                ]
+            }
+            """
+        When we run the generate command
+        Then we should be able to persist the following records using the generated code
+            | title     | integers              |
+            | fibonacci | [0, 1, 1, 2, 3, 5, 8] |
+            | squares   | [0, 1, 4, 9, 16, 25]  |
+
     Scenario: One-to-many object relationship
         Given the following JSON schema
             """
