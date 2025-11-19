@@ -8,6 +8,12 @@ from behave.model import Table
 from behave.runner import Context
 
 from sandals.core import generate_python_from_json_data
+from test.output.result import (
+    DataClass,
+    create_table,
+    insert_records,
+    select_all_records,
+)
 from test.util.name_storage import NameStorage
 
 
@@ -44,23 +50,21 @@ def _(ctx: Context) -> None:
         raise RuntimeError("Did not find table in the context")
     table: Table = ctx.table
 
-    from test.output.result import (
-        SimpleData,
-        create_table,
-        insert_records,
-        select_all_records,
-    )
+    from test.output.result import PodOneToMany
 
-    conn: sqlite3.Connection = sqlite3.connect(":memory:")
-
-    create_table(conn, SimpleData)
-
-    inserted: list[SimpleData] = [
-        SimpleData(0, int(row["count"]), float(row["number"]), row["description"])
-        for row in table
-    ]
-    insert_records(conn, inserted)
-    selected: list[SimpleData] = select_all_records(conn, SimpleData)
-    conn.close()
+    inserted, selected = _test_round_trip(PodOneToMany, table)
 
     assert selected == inserted, f"{selected} != {inserted}"
+
+
+def _test_round_trip(cls: type[DataClass], table: Table) -> tuple[list[DataClass], list[DataClass]]:
+    conn: sqlite3.Connection = sqlite3.connect(":memory:")
+
+    create_table(conn, cls)
+
+    inserted: list[DataClass] = [cls.from_dict(row) for row in table]
+    insert_records(conn, inserted)
+    selected: list[DataClass] = select_all_records(conn, cls)
+    conn.close()
+
+    return inserted, selected

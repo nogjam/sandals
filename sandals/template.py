@@ -22,6 +22,13 @@ class DataClass:
     table_name: str
     fields: list[Field]
 
+    def __init__(self, row_id: int, **kwargs) -> None:
+        raise NotImplementedError(f"Cannot initialize base class {type(self).__name__}")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, t.Any]) -> "DataClass":
+        return cls(0, **data)
+
     def marshall_values(self) -> tuple:
         return tuple(getattr(self, f.name) for f in self.fields)
 
@@ -82,7 +89,9 @@ def insert_records(conn: sqlite3.Connection, records: t.Sequence[DataClass]) -> 
     conn.commit()
 
 
-def _generate_records_iterable(records: t.Iterable[DataClass]) -> Generator[tuple[str, ...]]:
+def _generate_records_iterable(
+    records: t.Iterable[DataClass],
+) -> Generator[tuple[str, ...]]:
     for rec in records:
         yield rec.marshall_values()
 

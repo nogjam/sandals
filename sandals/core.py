@@ -45,9 +45,9 @@ def _generate_dataclass_code(data: dict) -> str:
                 field_kind = f"{FieldKind.__name__}.{FieldKind.COMPOUND.name}"
             code += f'{tab}{tab}Field("{p["name"]}", "{SQLITE_TYPE_MAPPING[pod_type]}", {field_kind}),\n'
         code += f"{tab}]\n"
-        code += f"\n"
 
         # __init__()
+        code += f"\n"
         code += f"{tab}def __init__(\n"
         code += f"{tab}{tab}self,\n"
         code += f"{tab}{tab}row_id: int,\n"
@@ -72,14 +72,20 @@ def _generate_dataclass_code(data: dict) -> str:
         code += f"{tab}{tab}self.row_id: int = row_id\n"
         for p in c["properties"]:
             code += f"{tab}{tab}self.{p["name"]}: {p["type"]} = {p["name"]}\n"
-        code += f"\n"
 
         # __repr__()
+        code += f"\n"
         code += f"{tab}def __repr__(self) -> str:\n"
         code += f'{tab}{tab}return f"{{type(self).__name__}}(row_id={{self.row_id}}, {", ".join(f"{p["name"]}={{self.{p["name"]}}}" for p in c["properties"])})"\n'
-        code += f"\n"
 
         # __eq__()
+        code += f"\n"
         code += f'{tab}def __eq__(self, other: "{c["name"]}") -> bool:\n'
         code += f"{tab}{tab}return all(getattr(self, f.name) == getattr(other, f.name) for f in self.fields)\n"
+
+        # from_dict()
+        code += f"\n"
+        code += f"{tab}@classmethod\n"
+        code += f'{tab}def from_dict(cls, data: dict[str, t.Any]) -> "{c["name"]}":\n'
+        code += f"{tab}{tab}return {c["name"]}(0, **data)\n"
     return code
