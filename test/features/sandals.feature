@@ -4,6 +4,7 @@ Feature: Sandals
     # I want to be able to define Python data classes and corresponding SQLite
     # schemas with plain JSON.
 
+    @wip
     Scenario: Simple schema
         Given the following JSON schema
             """

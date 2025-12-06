@@ -84,5 +84,5 @@ def _generate_dataclass_code(data: dict) -> str:
         code += f"\n"
         code += f"{tab}@classmethod\n"
         code += f'{tab}def from_dict(cls, data: dict[str, t.Any]) -> "{c["name"]}":\n'
-        code += f"{tab}{tab}return {c["name"]}(0, **data)\n"
+        code += f"{tab}{tab}return {c["name"]}(**data)\n"
     return code

@@ -53,24 +53,44 @@ def _(ctx: Context, class_name: str) -> None:
     # run.
     importlib.reload(result)
 
-    def _test_round_trip(
-        cls: type[result.DataClass], table: Table
-    ) -> tuple[list[result.DataClass], list[result.DataClass]]:
+    def _get_dict_data_from_table[T: result.DataClass](
+        cls: type[T], table: Table
+    ) -> list[T]:
+        match class_name:
+            case "PodOneToMany":
+                return [
+                    cls.from_dict(
+                        {
+                            "title": row["title"],
+                            "integers": [int(i) for i in row["integers"].split(",")],
+                        }
+                    )
+                    for row in table
+                ]
+            case "SimpleData":
+                return [
+                    cls.from_dict(
+                        {
+                            "count": row["count"],
+                            "number": row["number"],
+                            "description": row["description"],
+                        }
+                    )
+                    for row in table
+                ]
+            case _:
+                return []
+
+    def _test_round_trip[T: result.DataClass](
+        cls: type[T], table: Table
+    ) -> tuple[list[T], list[T]]:
         conn: sqlite3.Connection = sqlite3.connect(":memory:")
 
         result.create_table(conn, cls)
 
-        inserted: list[result.DataClass] = [
-            cls.from_dict(
-                {
-                    "title": row["title"],
-                    "integers": [int(i) for i in row["integers"].split(",")],
-                }
-            )
-            for row in table
-        ]
+        inserted: list[T] = _get_dict_data_from_table(cls, table)
         result.insert_records(conn, inserted)
-        selected: list[result.DataClass] = result.select_all_records(conn, cls)
+        selected: list[T] = result.select_all_records(conn, cls)
         conn.close()
 
         return inserted, selected
