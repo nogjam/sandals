@@ -39,6 +39,7 @@ Feature: Sandals
             | 5     | 105.3  | Spirit      |
             | 8     | 98.1   | KING-FM     |
 
+    @wip
     Scenario: One-to-many plain ol' data relationship
         Given the following JSON schema
             """
@@ -64,9 +65,9 @@ Feature: Sandals
             """
         When we run the generate command
         Then we should be able to persist the following records using the generated code
-            | title     | integers              |
-            | fibonacci | [0, 1, 1, 2, 3, 5, 8] |
-            | squares   | [0, 1, 4, 9, 16, 25]  |
+            | title     | integers            |
+            | fibonacci | 0, 1, 1, 2, 3, 5, 8 |
+            | squares   | 0, 1, 4, 9, 16, 25  |
 
     Scenario: One-to-many object relationship
         Given the following JSON schema

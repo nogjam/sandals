@@ -3,18 +3,13 @@
 import typing as t
 
 from sandals import config as c
-from sandals.template import FieldKind
+from sandals.template import SQLITE_POD_TYPE_MAP, Kind
 from sandals.util import pascal_case_to_snake_case
 
 
 COMPOUND_FIELD_OUTER_TYPE: t.Final[str] = "list"
 COMPOUND_FIELD_SQL_TYPE_PREFIX: t.Final[str] = "list["
 COMPOUND_FIELD_SQL_TYPE_SUFFIX: t.Final[str] = "]"
-SQLITE_TYPE_MAPPING: t.Final[dict[str, str]] = {
-    "int": "INTEGER",
-    "float": "REAL",
-    "str": "TEXT",
-}
 
 
 def generate_python_from_json_data(data: dict) -> str:
@@ -36,14 +31,15 @@ def _generate_dataclass_code(data: dict) -> str:
         code += f'{tab}table_name: str = "{pascal_case_to_snake_case(c["name"])}"\n'
         code += f"{tab}fields: list[Field] = [\n"
         for p in c["properties"]:
+            p_name: str = p["name"]
             p_type: str = p["type"]
+            field_kind: str = f"{Kind.__name__}.{Kind.POD.name}"
             pod_type: str = p_type
-            field_kind: str = f"{FieldKind.__name__}.{FieldKind.POD.name}"
             if p_type.startswith(prefix := COMPOUND_FIELD_SQL_TYPE_PREFIX):
                 suffix: str = COMPOUND_FIELD_SQL_TYPE_SUFFIX
                 pod_type = p_type[len(prefix) : -len(suffix)]
-                field_kind = f"{FieldKind.__name__}.{FieldKind.COMPOUND.name}"
-            code += f'{tab}{tab}Field("{p["name"]}", "{SQLITE_TYPE_MAPPING[pod_type]}", {field_kind}),\n'
+                field_kind = f"{Kind.__name__}.{Kind.COMPOUND.name}"
+            code += f'{tab}{tab}Field("{p_name}", "{SQLITE_POD_TYPE_MAP[pod_type].sql}", {field_kind}),\n'
         code += f"{tab}]\n"
 
         # __init__()
@@ -70,6 +66,7 @@ def _generate_dataclass_code(data: dict) -> str:
                 code += f"{tab}{tab}if not isinstance({p["name"]}, {p["type"]}):\n"
                 code += f'{tab}{tab}{tab}raise TypeError("\'{p["name"]}\' is not of type \'{p["type"]}\'")\n'
         code += f"{tab}{tab}self.row_id: int = row_id\n"
+        code += f"{tab}{tab}super().__init__()\n"
         for p in c["properties"]:
             code += f"{tab}{tab}self.{p["name"]}: {p["type"]} = {p["name"]}\n"
 

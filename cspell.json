@@ -3,8 +3,10 @@
     "language": "en",
     "words": [
         "adoc",
+        "cabc",
         "executemany",
         "executescript",
+        "lastrowid",
         "pycache",
         "pytest"
     ]
