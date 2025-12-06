@@ -9,8 +9,9 @@ import typing as t
 COMPOUND_VALUE_COL: t.Final[str] = "value"
 
 
-type PodData = int | float | str
 type PodType = type[int | float | str]
+type PodData = int | float | str
+type CompoundData = list[PodData]
 
 
 class PodSqlite(t.NamedTuple):
@@ -31,8 +32,9 @@ class Kind(Enum):
 
 
 class Field:
-    def __init__(self, name: str, sql_type: str, kind: Kind) -> None:
+    def __init__(self, name: str, py_type: type, sql_type: str, kind: Kind) -> None:
         self.name: str = name
+        self.py_type: type = py_type
         self.sql_type: str = sql_type
         self.kind: Kind = kind
 
@@ -43,8 +45,10 @@ class DataClass:
     table_name: str
     fields: list[Field]
 
-    def __init__(self, **kwargs) -> None:
-        self.fields_by_kind: dict[Kind, list[Field]] = self.get_fields_by_kind()
+    def __init_subclass__(cls) -> None:
+        cls.fields_by_kind: dict[Kind, list[Field]] = cls.get_fields_by_kind()
+        cls.fields_pod: list[Field] = cls.fields_by_kind[Kind.POD]
+        cls.fields_compound: list[Field] = cls.fields_by_kind[Kind.COMPOUND]
 
     @classmethod
     def get_fields_by_kind(cls) -> dict[Kind, list[Field]]:
@@ -54,24 +58,36 @@ class DataClass:
         return fbk
 
     @classmethod
-    def get_fields_pod(cls) -> list[Field]:
-        return cls.get_fields_by_kind()[Kind.POD]
+    def from_dict_with_cast(cls, data: dict[str, t.Any]) -> "DataClass":
+        cast: dict[str, t.Any] = {}
 
-    @classmethod
-    def get_fields_compound(cls) -> list[Field]:
-        return cls.get_fields_by_kind()[Kind.COMPOUND]
+        for f_p in cls.fields_pod:
+            try:
+                v_p: t.Any = data[f_p.name]
+            except KeyError as e:
+                raise KeyError(f"Field {f_p.name!r} not found in given data") from e
+            try:
+                cast[f_p.name] = f_p.py_type(v_p)
+            except TypeError as e:
+                raise TypeError(
+                    f"Field {f_p.name!r} could not be cast to {f_p.py_type.__name__} from {type(v_p).__name__}"
+                ) from e
 
-    @property
-    def fields_pod(self) -> list[Field]:
-        return self.fields_by_kind[Kind.POD]
+        for f_c in cls.fields_compound:
+            try:
+                v_c: list[t.Any] = data[f_c.name]
+            except KeyError as e:
+                raise KeyError(f"Field {f_c.name!r} not found in given data") from e
+            if len(v_c) == 0:
+                continue
+            try:
+                cast[f_c.name] = [f_c.py_type(x) for x in v_c]
+            except TypeError as e:
+                raise TypeError(
+                    f"Field {f_c.name!r} could not be cast to {f_c.py_type.__name__} from {type(v_c[0]).__name__}"
+                ) from e
 
-    @property
-    def fields_compound(self) -> list[Field]:
-        return self.fields_by_kind[Kind.COMPOUND]
-
-    @classmethod
-    def from_dict(cls, data: dict[str, t.Any]) -> "DataClass":
-        return cls(**data)
+        return cls(**cast)
 
     @classmethod
     def table_name_compound(cls, field_name: str) -> str:
@@ -154,18 +170,22 @@ def select_all_records[T: DataClass](
 ) -> list[T]:
     cur: sqlite3.Cursor = conn.cursor()
     cur.execute(f"SELECT * FROM {data_cls.table_name}")
-    records: list[list[PodData | list[PodData]]] = [list(r) for r in cur.fetchall()]
+    records: list[list[PodData]] = [list(r) for r in cur.fetchall()]
+    objects: list[T] = []
     for row in records:
-        row_id: int = t.cast(int, row[0])
-        data_comp_fields: list[list[PodData]] = []
-        for f_cpd in data_cls.get_fields_compound():
+        row_id: int = t.cast(int, row.pop(0))
+        obj_kwargs: dict[str, PodData | CompoundData] = {
+            f_p.name: v for f_p, v in zip(data_cls.fields_pod, row)
+        }
+        obj_kwargs["row_id"] = row_id
+        for f_c in data_cls.fields_compound:
             cur.execute(
-                f"SELECT * FROM {data_cls.table_name_compound(f_cpd.name)} WHERE {data_cls.table_name}_id = {row_id}"
+                f"SELECT * FROM {data_cls.table_name_compound(f_c.name)} WHERE {data_cls.table_name}_id = {row_id}"
             )
-            rows_cpd: list[tuple] = cur.fetchall()
-            data_comp_fields.append([r[1] for r in rows_cpd])
-        row.extend(data_comp_fields)
-    return [data_cls(*params) for params in records]
+            rows_comp: list[tuple] = cur.fetchall()
+            obj_kwargs[f_c.name] = [r[1] for r in rows_comp]
+        objects.append(data_cls(**obj_kwargs))
+    return objects
 
 
 # SANDALS::GENERATED_CLASSES

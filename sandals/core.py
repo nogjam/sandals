@@ -39,34 +39,34 @@ def _generate_dataclass_code(data: dict) -> str:
                 suffix: str = COMPOUND_FIELD_SQL_TYPE_SUFFIX
                 pod_type = p_type[len(prefix) : -len(suffix)]
                 field_kind = f"{Kind.__name__}.{Kind.COMPOUND.name}"
-            code += f'{tab}{tab}Field("{p_name}", "{SQLITE_POD_TYPE_MAP[pod_type].sql}", {field_kind}),\n'
+            code += f'{tab}{tab}Field("{p_name}", {pod_type}, "{SQLITE_POD_TYPE_MAP[pod_type].sql}", {field_kind}),\n'
         code += f"{tab}]\n"
 
         # __init__()
         code += f"\n"
         code += f"{tab}def __init__(\n"
         code += f"{tab}{tab}self,\n"
-        code += f"{tab}{tab}row_id: int,\n"
         for p in c["properties"]:
             code += f"{tab}{tab}{p["name"]}: {p["type"]},\n"
+        code += f"{tab}{tab}row_id: int = -1,\n"
         code += f"{tab}) -> None:\n"
-        code += f"{tab}{tab}if not isinstance(row_id, int):\n"
-        code += f"{tab}{tab}{tab}raise TypeError(\"'row_id' is not of type 'int'\")\n"
         for p in c["properties"]:
+            p_name: str = p["name"]
             p_type: str = p["type"]
             if p_type.startswith(prefix := COMPOUND_FIELD_SQL_TYPE_PREFIX):
                 suffix: str = COMPOUND_FIELD_SQL_TYPE_SUFFIX
                 pod_type: str = p_type[len(prefix) : -len(suffix)]
                 outer_type: str = COMPOUND_FIELD_OUTER_TYPE
-                code += f"{tab}{tab}if not isinstance({p["name"]}, {outer_type}):\n"
-                code += f'{tab}{tab}{tab}raise TypeError("\'{p["name"]}\' is not of type \'{outer_type}\'")\n'
-                code += f"{tab}{tab}if len({p["name"]}) > 1 and not isinstance({p["name"]}[0], {pod_type}):\n"
-                code += f'{tab}{tab}{tab}raise TypeError("\'{p["name"]}\' contained type is not \'{pod_type}\'")\n'
+                code += f"{tab}{tab}if not isinstance({p_name}, {outer_type}):\n"
+                code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' is of type {{type({p_name}).__name__}}, not {outer_type}\")\n"
+                code += f"{tab}{tab}if len({p_name}) > 1 and not isinstance({p_name}[0], {pod_type}):\n"
+                code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' contained type is {{type({p_name}[0]).__name__}}, not {pod_type}\")\n"
             else:
-                code += f"{tab}{tab}if not isinstance({p["name"]}, {p["type"]}):\n"
-                code += f'{tab}{tab}{tab}raise TypeError("\'{p["name"]}\' is not of type \'{p["type"]}\'")\n'
+                code += f"{tab}{tab}if not isinstance({p_name}, {p_type}):\n"
+                code += f'{tab}{tab}{tab}raise TypeError(f"\'{p_name}\' is of type {{type({p_name}).__name__}}, not {p["type"]}")\n'
+        code += f"{tab}{tab}if not isinstance(row_id, int):\n"
+        code += f"{tab}{tab}{tab}raise TypeError(f\"'row_id' is of type {{type(row_id).__name__}}, not int\")\n"
         code += f"{tab}{tab}self.row_id: int = row_id\n"
-        code += f"{tab}{tab}super().__init__()\n"
         for p in c["properties"]:
             code += f"{tab}{tab}self.{p["name"]}: {p["type"]} = {p["name"]}\n"
 
@@ -80,9 +80,4 @@ def _generate_dataclass_code(data: dict) -> str:
         code += f'{tab}def __eq__(self, other: "{c["name"]}") -> bool:\n'
         code += f"{tab}{tab}return all(getattr(self, f.name) == getattr(other, f.name) for f in self.fields)\n"
 
-        # from_dict()
-        code += f"\n"
-        code += f"{tab}@classmethod\n"
-        code += f'{tab}def from_dict(cls, data: dict[str, t.Any]) -> "{c["name"]}":\n'
-        code += f"{tab}{tab}return {c["name"]}(**data)\n"
     return code
