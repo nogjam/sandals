@@ -32,14 +32,13 @@ Feature: Sandals
             }
             """
         When we run the generate command
-        Then we should be able to persist the following records using the generated code
+        Then we should be able to persist the following SimpleData records using the generated code
             | count | number | description |
             | 1     | 95.7   | KJR-FM      |
             | 4     | 107.7  | The End     |
             | 5     | 105.3  | Spirit      |
             | 8     | 98.1   | KING-FM     |
 
-    @wip
     Scenario: One-to-many plain ol' data relationship
         Given the following JSON schema
             """
@@ -64,7 +63,7 @@ Feature: Sandals
             }
             """
         When we run the generate command
-        Then we should be able to persist the following records using the generated code
+        Then we should be able to persist the following PodOneToMany records using the generated code
             | title     | integers            |
             | fibonacci | 0, 1, 1, 2, 3, 5, 8 |
             | squares   | 0, 1, 4, 9, 16, 25  |
@@ -110,7 +109,7 @@ Feature: Sandals
             }
             """
         When we run the generate command
-        Then we should be able to persist the following records using the generated code
+        Then we should be able to persist the following Box records using the generated code
             | type | color  | n_items | items         | name   | price |
             | Box  | red    | 2       | sphere, purse | --     | --    |
             | Item | --     | --      | --            | sphere | 12.12 |
