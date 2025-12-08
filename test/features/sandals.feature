@@ -80,6 +80,19 @@ Feature: Sandals
                 "version-sequence": 1,
                 "classes": [
                     {
+                        "name": "Item",
+                        "properties": [
+                            {
+                                "name": "name",
+                                "type": "str"
+                            },
+                            {
+                                "name": "price",
+                                "type": "float"
+                            }
+                        ]
+                    },
+                    {
                         "name": "Box",
                         "properties": [
                             {
@@ -95,28 +108,15 @@ Feature: Sandals
                                 "type": "list[Item]"
                             }
                         ]
-                    },
-                    {
-                        "name": "Item",
-                        "properties": [
-                            {
-                                "name": "name",
-                                "type": "str"
-                            },
-                            {
-                                "name": "price",
-                                "type": "float"
-                            }
-                        ]
                     }
                 ]
             }
             """
         When we run the generate command
         Then we should be able to persist the following Box records using the generated code
-            | type | color  | n_items | items         | name   | price |
-            | Box  | red    | 2       | sphere, purse | --     | --    |
-            | Item | --     | --      | --            | sphere | 12.12 |
-            | Item | --     | --      | --            | purse  | 55.80 |
-            | Box  | yellow | 1       | cube          | --     | --    |
-            | Item | --     | --      | --            | cube   | 6.00  |
+            | type | color  | n_items | items              | name   | price |
+            | Box  | red    | 2       | sphere, purse      | --     | --    |
+            | Box  | yellow | 1       | cube, sphere, cube | --     | --    |
+            | Item | --     | --      | --                 | sphere | 12.12 |
+            | Item | --     | --      | --                 | purse  | 55.80 |
+            | Item | --     | --      | --                 | cube   | 6.00  |

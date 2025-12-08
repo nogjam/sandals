@@ -6,12 +6,12 @@ import sqlite3
 import typing as t
 
 
-COMPOUND_VALUE_COL: t.Final[str] = "value"
+STRUCTURED_VALUE_COL: t.Final[str] = "value"
 
 
 type PodType = type[int | float | str]
 type PodData = int | float | str
-type CompoundData = list[PodData]
+type StructuredData = list[PodData]
 
 
 class PodSqlite(t.NamedTuple):
@@ -30,6 +30,9 @@ SQLITE_POD_TYPE_MAP: t.Final[dict[str, PodSqlite]] = {
 class Kind(Enum):
     # Plain Ol' Data -- bool, int, float, str
     POD = 1
+    # Lists of POD
+    STRUCTURED = auto()
+    # Lists of other custom types
     COMPOUND = auto()
 
 
@@ -39,6 +42,9 @@ class Field:
         self.py_type: type = py_type
         self.sql_type: str = sql_type
         self.kind: Kind = kind
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.name!r}, {self.py_type.__name__}, {self.sql_type!r}, {self.kind.name})"
 
 
 class DataClass:
@@ -50,11 +56,16 @@ class DataClass:
     def __init_subclass__(cls) -> None:
         cls.fields_by_kind: dict[Kind, list[Field]] = cls.get_fields_by_kind()
         cls.fields_pod: list[Field] = cls.fields_by_kind[Kind.POD]
+        cls.fields_structured: list[Field] = cls.fields_by_kind[Kind.STRUCTURED]
         cls.fields_compound: list[Field] = cls.fields_by_kind[Kind.COMPOUND]
 
     @classmethod
     def get_fields_by_kind(cls) -> dict[Kind, list[Field]]:
-        fbk: dict[Kind, list[Field]] = {Kind.POD: [], Kind.COMPOUND: []}
+        fbk: dict[Kind, list[Field]] = {
+            Kind.POD: [],
+            Kind.STRUCTURED: [],
+            Kind.COMPOUND: [],
+        }
         for f in cls.fields:
             fbk[f.kind].append(f)
         return fbk
@@ -63,42 +74,31 @@ class DataClass:
     def from_dict_with_cast(cls, data: dict[str, t.Any]) -> "DataClass":
         cast: dict[str, t.Any] = {}
 
-        for f_p in cls.fields_pod:
+        for f in cls.fields:
             try:
-                v_p: t.Any = data[f_p.name]
+                v: t.Any = data[f.name]
             except KeyError as e:
-                raise KeyError(f"Field {f_p.name!r} not found in given data") from e
+                raise KeyError(f"Field {f.name!r} not found in given data") from e
             try:
-                cast[f_p.name] = f_p.py_type(v_p)
+                if isinstance(v, list):
+                    cast[f.name] = list(map(f.py_type, v))
+                else:
+                    cast[f.name] = f.py_type(v)
             except TypeError as e:
                 raise TypeError(
-                    f"Field {f_p.name!r} could not be cast to {f_p.py_type.__name__} from {type(v_p).__name__}"
-                ) from e
-
-        for f_c in cls.fields_compound:
-            try:
-                v_c: list[t.Any] = data[f_c.name]
-            except KeyError as e:
-                raise KeyError(f"Field {f_c.name!r} not found in given data") from e
-            if len(v_c) == 0:
-                continue
-            try:
-                cast[f_c.name] = [f_c.py_type(x) for x in v_c]
-            except TypeError as e:
-                raise TypeError(
-                    f"Field {f_c.name!r} could not be cast to {f_c.py_type.__name__} from {type(v_c[0]).__name__}"
+                    f"Field {f.name!r} could not be cast to {f.py_type.__name__} from {type(v).__name__}"
                 ) from e
 
         return cls(**cast)
 
     @classmethod
-    def table_name_compound(cls, field_name: str) -> str:
-        return f"{cls.table_name}_{field_name}"
+    def table_name_structured_compound(cls, other_name: str) -> str:
+        return f"{cls.table_name}_{other_name}"
 
     def marshall_values_pod(self) -> tuple[PodData, ...]:
         return tuple(getattr(self, f.name) for f in self.fields_pod)
 
-    def marshall_values_compound(
+    def marshall_values_structured(
         self, row_id: int, field: Field
     ) -> cabc.Iterator[tuple[int, PodData]]:
         for v in getattr(self, field.name):
@@ -116,13 +116,21 @@ def create_table(conn: sqlite3.Connection, data_class: type[DataClass]) -> None:
     sql = sql.rstrip(",\n") + "\n"
     sql += ");\n"
 
-    if len(kinds[Kind.COMPOUND]) > 0:
-        for f in kinds[Kind.COMPOUND]:
-            sql += "\n"
-            sql += f"CREATE TABLE IF NOT EXISTS {data_class.table_name_compound(f.name)} (\n"
-            sql += f"{tab}{data_class.table_name}_id INTEGER NOT NULL,\n"
-            sql += f"{tab}{COMPOUND_VALUE_COL} {f.sql_type} NOT NULL\n"
-            sql += ");\n"
+    for f in kinds[Kind.STRUCTURED]:
+        sql += "\n"
+        sql += f"CREATE TABLE IF NOT EXISTS {data_class.table_name_structured_compound(f.name)} (\n"
+        sql += f"{tab}{data_class.table_name}_id INTEGER NOT NULL,\n"
+        sql += f"{tab}{STRUCTURED_VALUE_COL} {f.sql_type} NOT NULL\n"
+        sql += ");\n"
+
+    for f in kinds[Kind.COMPOUND]:
+        other_data_class: type[DataClass] = f.py_type
+        create_table(conn, other_data_class)
+
+        sql += "\n"
+        sql += f"CREATE TABLE IF NOT EXISTS {data_class.table_name_structured_compound(other_data_class.table_name)} (\n"
+        sql += f"{tab}{data_class.table_name}_id INTEGER NOT NULL,\n"
+        sql += f"{tab}{other_data_class.table_name}_id INTEGER NOT NULL,\n"
 
     conn.executescript(sql)
     conn.commit()
@@ -135,10 +143,14 @@ def _insert_record(conn: sqlite3.Connection, record: DataClass) -> None:
     if row_id is None:
         raise RuntimeError("Insertion was unsuccessful")
 
-    for comp_field in record.fields_compound:
-        sql_cmd: str = _sql_cmd_insert_compound(record, comp_field)
-        for values in record.marshall_values_compound(row_id, comp_field):
+    for struct_field in record.fields_structured:
+        sql_cmd: str = _sql_cmd_insert_structured(record, struct_field)
+        for values in record.marshall_values_structured(row_id, struct_field):
             cur.execute(sql_cmd, values)
+
+    # TODO: Flesh this out.
+    for comp_field in record.fields_compound:
+        sql_cmd_1, sql_cmd_2 = _sql_cmd_insert_compound(record, comp_field)
 
 
 def _sql_cmd_insert_pod(record: DataClass) -> str:
@@ -147,10 +159,20 @@ def _sql_cmd_insert_pod(record: DataClass) -> str:
     return f"INSERT INTO {record.table_name} ({columns}) VALUES ({placeholders})"
 
 
-def _sql_cmd_insert_compound(record: DataClass, field: Field) -> str:
-    cols: list[str] = [f"{record.table_name}_id", COMPOUND_VALUE_COL]
+def _sql_cmd_insert_structured(record: DataClass, field: Field) -> str:
+    cols: list[str] = [f"{record.table_name}_id", STRUCTURED_VALUE_COL]
     placeholders: str = ", ".join("?" * len(cols))
-    return f"INSERT INTO {record.table_name_compound(field.name)} ({", ".join(cols)}) VALUES ({placeholders})"
+    return f"INSERT INTO {record.table_name_structured_compound(field.name)} ({", ".join(cols)}) VALUES ({placeholders})"
+
+
+def _sql_cmd_insert_compound(record: DataClass, field: Field) -> tuple[str, str]:
+    other_table_name: type[DataClass] = field.py_type
+    cols: list[str] = [f"{record.table_name}_id", f"{other_table_name.table_name}_id"]
+    placeholders: str = ", ".join("?" * len(cols))
+    return (
+        f"INSERT INTO {record.table_name_structured_compound(field.name)} ({", ".join(cols)}) VALUES ({placeholders})",
+        f"",
+    )
 
 
 def insert_record(conn: sqlite3.Connection, record: DataClass) -> None:
@@ -176,13 +198,13 @@ def select_all_records[T: DataClass](
     objects: list[T] = []
     for row in records:
         row_id: int = t.cast(int, row.pop(0))
-        obj_kwargs: dict[str, PodData | CompoundData] = {
+        obj_kwargs: dict[str, PodData | StructuredData] = {
             f_p.name: f_p.py_type(v) for f_p, v in zip(data_cls.fields_pod, row)
         }
         obj_kwargs["row_id"] = row_id
         for f_c in data_cls.fields_compound:
             cur.execute(
-                f"SELECT * FROM {data_cls.table_name_compound(f_c.name)} WHERE {data_cls.table_name}_id = {row_id}"
+                f"SELECT * FROM {data_cls.table_name_structured_compound(f_c.name)} WHERE {data_cls.table_name}_id = {row_id}"
             )
             rows_comp: list[tuple] = cur.fetchall()
             obj_kwargs[f_c.name] = [r[1] for r in rows_comp]

@@ -7,9 +7,9 @@ from sandals.template import SQLITE_POD_TYPE_MAP, Kind
 from sandals.util import pascal_case_to_snake_case
 
 
-COMPOUND_FIELD_OUTER_TYPE: t.Final[str] = "list"
-COMPOUND_FIELD_SQL_TYPE_PREFIX: t.Final[str] = "list["
-COMPOUND_FIELD_SQL_TYPE_SUFFIX: t.Final[str] = "]"
+STRUCTURED_FIELD_OUTER_TYPE: t.Final[str] = "list"
+STRUCTURED_FIELD_SQL_TYPE_PREFIX: t.Final[str] = "list["
+STRUCTURED_FIELD_SQL_TYPE_SUFFIX: t.Final[str] = "]"
 
 
 def generate_python_from_json_data(data: dict) -> str:
@@ -24,7 +24,12 @@ def generate_python_from_json_data(data: dict) -> str:
 def _generate_dataclass_code(data: dict) -> str:
     tab: str = " " * 4
     code: str = ""
+    first: bool = True
     for c in data["classes"]:
+        if not first:
+            code += "\n\n"
+        first = False
+
         code += f'class {c["name"]}(DataClass):\n'
 
         # Class attributes
@@ -34,12 +39,25 @@ def _generate_dataclass_code(data: dict) -> str:
             p_name: str = p["name"]
             p_type: str = p["type"]
             field_kind: str = f"{Kind.__name__}.{Kind.POD.name}"
-            pod_type: str = p_type
-            if p_type.startswith(prefix := COMPOUND_FIELD_SQL_TYPE_PREFIX):
-                suffix: str = COMPOUND_FIELD_SQL_TYPE_SUFFIX
-                pod_type = p_type[len(prefix) : -len(suffix)]
-                field_kind = f"{Kind.__name__}.{Kind.COMPOUND.name}"
-            code += f'{tab}{tab}Field("{p_name}", {pod_type}, "{SQLITE_POD_TYPE_MAP[pod_type].sql}", {field_kind}),\n'
+            inner_type: str = p_type
+            if p_type.startswith(prefix := STRUCTURED_FIELD_SQL_TYPE_PREFIX):
+                suffix: str = STRUCTURED_FIELD_SQL_TYPE_SUFFIX
+                inner_type = p_type[len(prefix) : -len(suffix)]
+                field_kind = (
+                    Kind.__name__
+                    + "."
+                    + (
+                        Kind.STRUCTURED.name
+                        if inner_type in SQLITE_POD_TYPE_MAP
+                        else Kind.COMPOUND.name
+                    )
+                )
+            sql_type: str = (
+                SQLITE_POD_TYPE_MAP[inner_type].sql
+                if inner_type in SQLITE_POD_TYPE_MAP
+                else "--"
+            )
+            code += f'{tab}{tab}Field("{p_name}", {inner_type}, "{sql_type}", {field_kind}),\n'
         code += f"{tab}]\n"
 
         # __init__()
@@ -53,14 +71,14 @@ def _generate_dataclass_code(data: dict) -> str:
         for p in c["properties"]:
             p_name: str = p["name"]
             p_type: str = p["type"]
-            if p_type.startswith(prefix := COMPOUND_FIELD_SQL_TYPE_PREFIX):
-                suffix: str = COMPOUND_FIELD_SQL_TYPE_SUFFIX
-                pod_type: str = p_type[len(prefix) : -len(suffix)]
-                outer_type: str = COMPOUND_FIELD_OUTER_TYPE
+            if p_type.startswith(prefix := STRUCTURED_FIELD_SQL_TYPE_PREFIX):
+                suffix: str = STRUCTURED_FIELD_SQL_TYPE_SUFFIX
+                inner_type: str = p_type[len(prefix) : -len(suffix)]
+                outer_type: str = STRUCTURED_FIELD_OUTER_TYPE
                 code += f"{tab}{tab}if not isinstance({p_name}, {outer_type}):\n"
                 code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' is of type {{type({p_name}).__name__}}, not {outer_type}\")\n"
-                code += f"{tab}{tab}if len({p_name}) > 1 and not isinstance({p_name}[0], {pod_type}):\n"
-                code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' contained type is {{type({p_name}[0]).__name__}}, not {pod_type}\")\n"
+                code += f"{tab}{tab}if len({p_name}) > 1 and not isinstance({p_name}[0], {inner_type}):\n"
+                code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' contained type is {{type({p_name}[0]).__name__}}, not {inner_type}\")\n"
             else:
                 code += f"{tab}{tab}if not isinstance({p_name}, {p_type}):\n"
                 code += f'{tab}{tab}{tab}raise TypeError(f"\'{p_name}\' is of type {{type({p_name}).__name__}}, not {p["type"]}")\n'

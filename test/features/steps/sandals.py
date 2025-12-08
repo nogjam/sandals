@@ -79,6 +79,28 @@ def _(ctx: Context, class_name: str) -> None:
                     )
                     for row in table
                 ]
+            case "Box":
+                boxes_and_item_names: list[tuple[result.Box, list[str]]] = []
+                items: dict[str, result.Item] = {}
+                for row in table:
+                    if row["type"] == result.Box.__name__:
+                        boxes_and_item_names.append(
+                            (
+                                result.Box.from_dict_with_cast(
+                                    dict(color=row["color"], n_items=row["n_items"], items=[])
+                                ),
+                                [x.strip() for x in row["items"].split(",")],
+                            )
+                        )
+                    elif row["type"] == result.Item.__name__:
+                        items[row["name"]] = result.Item.from_dict_with_cast(
+                            dict(name=row["name"], price=row["price"])
+                        )
+                boxes: list[result.Box] = []
+                for box, item_names in boxes_and_item_names:
+                    box.items = [items[name] for name in item_names]
+                    boxes.append(box)
+                return boxes
             case _:
                 return []
 
