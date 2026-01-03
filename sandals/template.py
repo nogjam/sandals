@@ -20,6 +20,7 @@ class PodSqlite(t.NamedTuple):
 
 
 SQLITE_POD_TYPE_MAP: t.Final[dict[str, PodSqlite]] = {
+    "bool": PodSqlite(type_=bool, sql="INTEGER"),
     "int": PodSqlite(type_=int, sql="INTEGER"),
     "float": PodSqlite(type_=float, sql="REAL"),
     "str": PodSqlite(type_=str, sql="TEXT"),
@@ -27,6 +28,7 @@ SQLITE_POD_TYPE_MAP: t.Final[dict[str, PodSqlite]] = {
 
 
 class Kind(Enum):
+    # Plain Ol' Data -- bool, int, float, str
     POD = 1
     COMPOUND = auto()
 
@@ -175,7 +177,7 @@ def select_all_records[T: DataClass](
     for row in records:
         row_id: int = t.cast(int, row.pop(0))
         obj_kwargs: dict[str, PodData | CompoundData] = {
-            f_p.name: v for f_p, v in zip(data_cls.fields_pod, row)
+            f_p.name: f_p.py_type(v) for f_p, v in zip(data_cls.fields_pod, row)
         }
         obj_kwargs["row_id"] = row_id
         for f_c in data_cls.fields_compound:

@@ -62,6 +62,7 @@ def _(ctx: Context, class_name: str) -> None:
                     cls.from_dict_with_cast(
                         {
                             "count": row["count"],
+                            "bias": row["bias"],
                             "number": row["number"],
                             "description": row["description"],
                         }

@@ -19,6 +19,10 @@ Feature: Sandals
                                 "type": "int"
                             },
                             {
+                                "name": "bias",
+                                "type": "bool"
+                            },
+                            {
                                 "name": "number",
                                 "type": "float"
                             },
@@ -33,11 +37,11 @@ Feature: Sandals
             """
         When we run the generate command
         Then we should be able to persist the following SimpleData records using the generated code
-            | count | number | description |
-            | 1     | 95.7   | KJR-FM      |
-            | 4     | 107.7  | The End     |
-            | 5     | 105.3  | Spirit      |
-            | 8     | 98.1   | KING-FM     |
+            | count | bias  | number | description |
+            | 1     | False | 95.7   | KJR-FM      |
+            | 4     | True  | 107.7  | The End     |
+            | 5     | True  | 105.3  | Spirit      |
+            | 8     | False | 98.1   | KING-FM     |
 
     Scenario: One-to-many plain ol' data relationship
         Given the following JSON schema
