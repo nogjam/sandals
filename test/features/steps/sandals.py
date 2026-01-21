@@ -57,19 +57,29 @@ def _(ctx: Context, class_name: str) -> None:
         cls: type[result.DataClass], table: Table
     ) -> list[result.DataClass]:
         match class_name:
-            case "SimpleData":
+            case "RadioStation":
                 return [
                     cls.from_dict_with_cast(
                         {
                             "count": row["count"],
-                            "bias": row["bias"],
+                            "gt_hundo": row["gt_hundo"],
                             "number": row["number"],
                             "description": row["description"],
                         }
                     )
                     for row in table
                 ]
-            case "PodOneToMany":
+            case "CastOfCharacters":
+                return [
+                    cls.from_dict_with_cast(
+                        {
+                            "monikers": [x.strip() for x in row["monikers"].split(",")],
+                            "ages": [x.strip() for x in row["ages"].split(",")],
+                        }
+                    )
+                    for row in table
+                ]
+            case "NumberSequence":
                 return [
                     cls.from_dict_with_cast(
                         {
@@ -120,4 +130,6 @@ def _(ctx: Context, class_name: str) -> None:
 
     inserted, selected = _test_round_trip(getattr(result, class_name), table)
 
-    assert selected == inserted, f"{selected} != {inserted}"
+    for i, pair in enumerate(zip(selected, inserted)):
+        sel, ins = pair
+        assert sel == ins, f"{i}: {sel} != {ins}"

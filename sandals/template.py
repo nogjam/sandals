@@ -136,8 +136,7 @@ def create_table(conn: sqlite3.Connection, data_class: type[DataClass]) -> None:
     conn.commit()
 
 
-def _insert_record(conn: sqlite3.Connection, record: DataClass) -> None:
-    cur: sqlite3.Cursor = conn.cursor()
+def _insert_record(cur: sqlite3.Cursor, record: DataClass) -> int:
     cur.execute(_sql_cmd_insert_pod(record), record.marshall_values_pod())
     row_id: int | None = cur.lastrowid
     if row_id is None:
@@ -148,15 +147,22 @@ def _insert_record(conn: sqlite3.Connection, record: DataClass) -> None:
         for values in record.marshall_values_structured(row_id, struct_field):
             cur.execute(sql_cmd, values)
 
-    # TODO: Flesh this out.
-    for comp_field in record.fields_compound:
-        sql_cmd_1, sql_cmd_2 = _sql_cmd_insert_compound(record, comp_field)
+    # # TODO: Flesh this out.
+    # for comp_field in record.fields_compound:
+    #     for item in getattr(record, comp_field):
+    #         comp_row_id: int = _insert_record(cur, getattr(record, comp_field))
+    #         sql_cmd_1, sql_cmd_2 = _sql_cmd_insert_compound(record, comp_field)
+
+    return row_id
 
 
 def _sql_cmd_insert_pod(record: DataClass) -> str:
-    placeholders: str = ", ".join("?" * len(record.fields_pod))
-    columns: str = ", ".join(f.name for f in record.fields_pod)
-    return f"INSERT INTO {record.table_name} ({columns}) VALUES ({placeholders})"
+    if len(record.fields_pod) == 0:
+        return f"INSERT INTO {record.table_name} DEFAULT VALUES"
+    else:
+        placeholders: str = ", ".join("?" * len(record.fields_pod))
+        columns: str = ", ".join(f.name for f in record.fields_pod)
+        return f"INSERT INTO {record.table_name} ({columns}) VALUES ({placeholders})"
 
 
 def _sql_cmd_insert_structured(record: DataClass, field: Field) -> str:
@@ -176,7 +182,7 @@ def _sql_cmd_insert_compound(record: DataClass, field: Field) -> tuple[str, str]
 
 
 def insert_record(conn: sqlite3.Connection, record: DataClass) -> None:
-    _insert_record(conn, record)
+    _insert_record(conn.cursor(), record)
     conn.commit()
 
 
@@ -184,8 +190,9 @@ def insert_records(conn: sqlite3.Connection, records: t.Sequence[DataClass]) -> 
     # IMPROVEMENT: Consider using conn.executemany if this turns out to be
     # slow. Ref. the answer here:
     # https://stackoverflow.com/questions/29934154/sqlite-get-id-and-insert-when-using-executemany
+    cur: sqlite3.Cursor = conn.cursor()
     for record in records:
-        _insert_record(conn, record)
+        _insert_record(cur, record)
     conn.commit()
 
 
@@ -202,12 +209,12 @@ def select_all_records[T: DataClass](
             f_p.name: f_p.py_type(v) for f_p, v in zip(data_cls.fields_pod, row)
         }
         obj_kwargs["row_id"] = row_id
-        for f_c in data_cls.fields_compound:
+        for f_s in data_cls.fields_structured:
             cur.execute(
-                f"SELECT * FROM {data_cls.table_name_structured_compound(f_c.name)} WHERE {data_cls.table_name}_id = {row_id}"
+                f"SELECT * FROM {data_cls.table_name_structured_compound(f_s.name)} WHERE {data_cls.table_name}_id = {row_id}"
             )
-            rows_comp: list[tuple] = cur.fetchall()
-            obj_kwargs[f_c.name] = [r[1] for r in rows_comp]
+            rows_struct: list[tuple] = cur.fetchall()
+            obj_kwargs[f_s.name] = [r[1] for r in rows_struct]
         objects.append(data_cls(**obj_kwargs))
     return objects
 

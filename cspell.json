@@ -6,6 +6,7 @@
         "cabc",
         "executemany",
         "executescript",
+        "hundo",
         "lastrowid",
         "pycache",
         "pytest"
