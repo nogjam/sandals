@@ -130,7 +130,8 @@ def create_table(conn: sqlite3.Connection, data_class: type[DataClass]) -> None:
         sql += "\n"
         sql += f"CREATE TABLE IF NOT EXISTS {data_class.table_name_structured_compound(other_data_class.table_name)} (\n"
         sql += f"{tab}{data_class.table_name}_id INTEGER NOT NULL,\n"
-        sql += f"{tab}{other_data_class.table_name}_id INTEGER NOT NULL,\n"
+        sql += f"{tab}{other_data_class.table_name}_id INTEGER NOT NULL\n"
+        sql += f");"
 
     conn.executescript(sql)
     conn.commit()
@@ -147,11 +148,11 @@ def _insert_record(cur: sqlite3.Cursor, record: DataClass) -> int:
         for values in record.marshall_values_structured(row_id, struct_field):
             cur.execute(sql_cmd, values)
 
-    # # TODO: Flesh this out.
-    # for comp_field in record.fields_compound:
-    #     for item in getattr(record, comp_field):
-    #         comp_row_id: int = _insert_record(cur, getattr(record, comp_field))
-    #         sql_cmd_1, sql_cmd_2 = _sql_cmd_insert_compound(record, comp_field)
+    for comp_field in record.fields_compound:
+        sql_cmd: str = _sql_cmd_insert_compound(record, comp_field)
+        for item in getattr(record, comp_field.name):
+            comp_row_id: int = _insert_record(cur, item)
+            cur.execute(sql_cmd, (row_id, comp_row_id))
 
     return row_id
 
@@ -171,14 +172,12 @@ def _sql_cmd_insert_structured(record: DataClass, field: Field) -> str:
     return f"INSERT INTO {record.table_name_structured_compound(field.name)} ({", ".join(cols)}) VALUES ({placeholders})"
 
 
-def _sql_cmd_insert_compound(record: DataClass, field: Field) -> tuple[str, str]:
-    other_table_name: type[DataClass] = field.py_type
-    cols: list[str] = [f"{record.table_name}_id", f"{other_table_name.table_name}_id"]
+def _sql_cmd_insert_compound(record: DataClass, field: Field) -> str:
+    other_data_class: type[DataClass] = field.py_type
+    comp_table_name: str = other_data_class.table_name
+    cols: list[str] = [f"{record.table_name}_id", f"{comp_table_name}_id"]
     placeholders: str = ", ".join("?" * len(cols))
-    return (
-        f"INSERT INTO {record.table_name_structured_compound(field.name)} ({", ".join(cols)}) VALUES ({placeholders})",
-        f"",
-    )
+    return f"INSERT INTO {record.table_name_structured_compound(comp_table_name)} ({", ".join(cols)}) VALUES ({placeholders})"
 
 
 def insert_record(conn: sqlite3.Connection, record: DataClass) -> None:
@@ -197,24 +196,36 @@ def insert_records(conn: sqlite3.Connection, records: t.Sequence[DataClass]) -> 
 
 
 def select_all_records[T: DataClass](
-    conn: sqlite3.Connection, data_cls: type[T]
+    conn: sqlite3.Connection, data_cls: type[T], row_id: int | None = None
 ) -> list[T]:
     cur: sqlite3.Cursor = conn.cursor()
-    cur.execute(f"SELECT * FROM {data_cls.table_name}")
+    sel_stmt: str = f"SELECT * FROM {data_cls.table_name}"
+    if row_id is not None:
+        sel_stmt += f" WHERE row_id = {row_id}"
+    cur.execute(sel_stmt)
     records: list[list[PodData]] = [list(r) for r in cur.fetchall()]
     objects: list[T] = []
     for row in records:
-        row_id: int = t.cast(int, row.pop(0))
+        rec_id: int = t.cast(int, row.pop(0))
         obj_kwargs: dict[str, PodData | StructuredData] = {
             f_p.name: f_p.py_type(v) for f_p, v in zip(data_cls.fields_pod, row)
         }
-        obj_kwargs["row_id"] = row_id
+        obj_kwargs["row_id"] = rec_id
         for f_s in data_cls.fields_structured:
             cur.execute(
-                f"SELECT * FROM {data_cls.table_name_structured_compound(f_s.name)} WHERE {data_cls.table_name}_id = {row_id}"
+                f"SELECT * FROM {data_cls.table_name_structured_compound(f_s.name)} WHERE {data_cls.table_name}_id = {rec_id}"
             )
             rows_struct: list[tuple] = cur.fetchall()
             obj_kwargs[f_s.name] = [r[1] for r in rows_struct]
+        for f_c in data_cls.fields_compound:
+            cur.execute(
+                f"SELECT * FROM {data_cls.table_name_structured_compound(f_c.py_type.__name__)} WHERE {data_cls.table_name}_id = {rec_id}"
+            )
+            rows_comp: list[tuple] = cur.fetchall()
+            items: list = []
+            for _, comp_id in rows_comp:
+                items.extend(select_all_records(conn, f_c.py_type, row_id=comp_id))
+            obj_kwargs[f_c.name] = items
         objects.append(data_cls(**obj_kwargs))
     return objects
 

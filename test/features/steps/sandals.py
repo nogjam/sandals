@@ -97,7 +97,7 @@ def _(ctx: Context, class_name: str) -> None:
                         boxes_and_item_names.append(
                             (
                                 result.Box.from_dict_with_cast(
-                                    dict(color=row["color"], n_items=row["n_items"], items=[])
+                                    dict(color=row["color"], n_sides=row["n_sides"], items=[])
                                 ),
                                 [x.strip() for x in row["items"].split(",")],
                             )
