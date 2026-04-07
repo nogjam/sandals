@@ -109,6 +109,19 @@ Feature: Sandals
                 "version-sequence": 1,
                 "classes": [
                     {
+                        "name": "Shape",
+                        "properties": [
+                            {
+                                "name": "name",
+                                "type": "str"
+                            },
+                            {
+                                "name": "n_sides",
+                                "type": "int"
+                            }
+                        ]
+                    },
+                    {
                         "name": "Item",
                         "properties": [
                             {
@@ -129,8 +142,8 @@ Feature: Sandals
                                 "type": "str"
                             },
                             {
-                                "name": "n_sides",
-                                "type": "int"
+                                "name": "shape",
+                                "type": "Shape"
                             },
                             {
                                 "name": "items",
@@ -143,11 +156,11 @@ Feature: Sandals
             """
         When we run the generate command
         Then we should be able to persist the following Box records using the generated code
-            | type | color  | n_sides | items                  | name   | price |
-            | Box  | red    | 4       | slinky, gem            | --     | --    |
-            | Box  | yellow | 1       | marble, slinky, marble | --     | --    |
-            | Item | --     | --      | --                     | slinky | 12.12 |
-            | Item | --     | --      | --                     | gem    | 55.80 |
-            | Item | --     | --      | --                     | marble | 6.00  |
-
-# TODO: A scenario where another custom class is not contained in a list.
+            | type  | color  | shape  | items                  | name   | price | n_sides |
+            | Box   | red    | square | slinky, gem            | --     | --    | --      |
+            | Box   | yellow | circle | marble, slinky, marble | --     | --    | --      |
+            | Item  | --     | --     | --                     | slinky | 12.12 | --      |
+            | Item  | --     | --     | --                     | gem    | 55.80 | --      |
+            | Item  | --     | --     | --                     | marble | 6.00  | --      |
+            | Shape | --     | --     | --                     | circle | --    | 1       |
+            | Shape | --     | --     | --                     | square | --    | 4       |

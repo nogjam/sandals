@@ -106,6 +106,10 @@ def _(ctx: Context, class_name: str) -> None:
                         items[row["name"]] = result.Item.from_dict_with_cast(
                             dict(name=row["name"], price=row["price"])
                         )
+                    elif row["type"] == result.Shape.__name__:
+                        items[row["name"]] = result.Shape.from_dict_with_cast(
+                            dict(name=row["name"], n_sides=row["n_sides"])
+                        )
                 boxes: list[result.Box] = []
                 for box, item_names in boxes_and_item_names:
                     box.items = [items[name] for name in item_names]
