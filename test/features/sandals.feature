@@ -101,7 +101,7 @@ Feature: Sandals
             | fibonacci | 0, 1, 1, 2, 3, 5, 8 |
             | squares   | 0, 1, 4, 9, 16, 25  |
 
-    Scenario: Compound data
+    Scenario: Data-class and compound data
         Given the following JSON schema
             """
             {
@@ -164,3 +164,5 @@ Feature: Sandals
             | Item  | --     | --     | --                     | marble | 6.00  | --      |
             | Shape | --     | --     | --                     | circle | --    | 1       |
             | Shape | --     | --     | --                     | square | --    | 4       |
+
+# TODO: Scenario with nested data-class/compound data

@@ -90,15 +90,21 @@ def _(ctx: Context, class_name: str) -> None:
                     for row in table
                 ]
             case "Box":
-                boxes_and_item_names: list[tuple[result.Box, list[str]]] = []
+                box_shape_items: list[tuple[result.Box, str, list[str]]] = []
                 items: dict[str, result.Item] = {}
+                shapes: dict[str, result.Shape] = {}
                 for row in table:
                     if row["type"] == result.Box.__name__:
-                        boxes_and_item_names.append(
+                        box_shape_items.append(
                             (
                                 result.Box.from_dict_with_cast(
-                                    dict(color=row["color"], n_sides=row["n_sides"], items=[])
+                                    dict(
+                                        color=row["color"],
+                                        shape=dict(name="", n_sides=0),
+                                        items=[],
+                                    )
                                 ),
+                                row["shape"],
                                 [x.strip() for x in row["items"].split(",")],
                             )
                         )
@@ -107,12 +113,13 @@ def _(ctx: Context, class_name: str) -> None:
                             dict(name=row["name"], price=row["price"])
                         )
                     elif row["type"] == result.Shape.__name__:
-                        items[row["name"]] = result.Shape.from_dict_with_cast(
+                        shapes[row["name"]] = result.Shape.from_dict_with_cast(
                             dict(name=row["name"], n_sides=row["n_sides"])
                         )
                 boxes: list[result.Box] = []
-                for box, item_names in boxes_and_item_names:
+                for box, shape_name, item_names in box_shape_items:
                     box.items = [items[name] for name in item_names]
+                    box.shape = shapes[shape_name]
                     boxes.append(box)
                 return boxes
             case _:
