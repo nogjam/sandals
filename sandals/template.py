@@ -84,15 +84,26 @@ class DataClass:
                 v: t.Any = data[f.name]
             except KeyError as e:
                 raise KeyError(f"Field {f.name!r} not found in given data") from e
-            try:
-                if isinstance(v, list):
-                    cast[f.name] = list(map(f.py_type, v))
-                else:
-                    cast[f.name] = f.py_type(v)
-            except TypeError as e:
-                raise TypeError(
-                    f"Field {f.name!r} could not be cast to {f.py_type.__name__} from {type(v).__name__}"
-                ) from e
+
+            if f.kind is Kind.DC:
+                dc_type: type[DataClass] = f.py_type
+                if not isinstance(v, dict):
+                    raise TypeError(
+                        f"Cannot initialize nested type from type {type(v).__name__}"
+                    )
+                cast[f.name] = dc_type.from_dict_with_cast(v)
+            else:
+                try:
+                    if isinstance(v, list):
+                        cast[f.name] = list(map(f.py_type, v))
+                    elif isinstance(v, DataClass):
+                        is_dc = True
+                    else:
+                        cast[f.name] = f.py_type(v)
+                except TypeError as e:
+                    raise TypeError(
+                        f"Field {f.name!r} could not be cast to {f.py_type.__name__} from {type(v).__name__}"
+                    ) from e
 
         return cls(**cast)
 

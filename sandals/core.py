@@ -25,6 +25,7 @@ def _generate_dataclass_code(data: dict) -> str:
     tab: str = " " * 4
     code: str = ""
     first: bool = True
+    class_names: list[str] = [c["name"] for c in data["classes"]]
     for c in data["classes"]:
         if not first:
             code += "\n\n"
@@ -40,7 +41,9 @@ def _generate_dataclass_code(data: dict) -> str:
             p_type: str = p["type"]
             field_kind: str = f"{Kind.__name__}.{Kind.POD.name}"
             inner_type: str = p_type
-            if p_type.startswith(prefix := STRUCTURED_FIELD_SQL_TYPE_PREFIX):
+            if p_type in class_names:
+                field_kind = Kind.__name__ + "." + Kind.DC.name
+            elif p_type.startswith(prefix := STRUCTURED_FIELD_SQL_TYPE_PREFIX):
                 suffix: str = STRUCTURED_FIELD_SQL_TYPE_SUFFIX
                 inner_type = p_type[len(prefix) : -len(suffix)]
                 field_kind = (
