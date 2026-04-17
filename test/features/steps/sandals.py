@@ -89,6 +89,31 @@ def _(ctx: Context, class_name: str) -> None:
                     )
                     for row in table
                 ]
+            case "Tree":
+                tree_fruits: list[tuple[result.Tree, str]] = []
+                fruits: dict[str, result.Fruit] = {}
+                for row in table:
+                    if row["type"] == result.Tree.__name__:
+                        tree_fruits.append(
+                            (
+                                result.Tree.from_dict_with_cast(
+                                    dict(
+                                        classification=row["classification"],
+                                        fruit=dict(name="", color=""),
+                                    )
+                                ),
+                                row["fruit"],
+                            )
+                        )
+                    elif row["type"] == result.Fruit.__name__:
+                        fruits[row["name"]] = result.Fruit.from_dict_with_cast(
+                            dict(name=row["name"], color=row["color"])
+                        )
+                trees: list[result.Tree] = []
+                for tree, fruit_name in tree_fruits:
+                    tree.fruit = fruits[fruit_name]
+                    trees.append(tree)
+                return trees
             case "Box":
                 box_shape_items: list[tuple[result.Box, str, list[str]]] = []
                 items: dict[str, result.Item] = {}

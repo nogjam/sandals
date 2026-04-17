@@ -31,10 +31,10 @@ SQLITE_POD_TYPE_MAP: t.Final[dict[str, PodSqlite]] = {
 class Kind(Enum):
     # Plain Ol' Data -- bool, int, float, str
     POD = 1
-    # Data Class -- other custom data types
-    DC = auto()
     # Lists of POD
     STRUCTURED = auto()
+    # Data Class -- other custom data types
+    DC = auto()
     # Lists of DC
     COMPOUND = auto()
 
@@ -108,16 +108,11 @@ class DataClass:
         return cls(**cast)
 
     @classmethod
-    def table_name_structured_compound(cls, other_name: str) -> str:
+    def table_name_munged(cls, other_name: str) -> str:
         return f"{cls.table_name}_{other_name}"
 
-    def marshall_values_pod(self, parent_id: int | None = None) -> tuple[PodData, ...]:
-        if parent_id is None:
-            return tuple(getattr(self, f.name) for f in self.fields_pod)
-
-        ls: list[t.Any] = [getattr(self, f.name) for f in self.fields_pod]
-        ls.append(parent_id)
-        return tuple(ls)
+    def marshall_values_pod(self) -> tuple[PodData, ...]:
+        return tuple(getattr(self, f.name) for f in self.fields_pod)
 
     def marshall_values_structured(
         self, row_id: int, field: Field
@@ -126,11 +121,7 @@ class DataClass:
             yield (row_id, v)
 
 
-def create_table(
-    conn: sqlite3.Connection,
-    data_class: type[DataClass],
-    parent_cls_name: str | None = None,
-) -> None:
+def create_table(conn: sqlite3.Connection, data_class: type[DataClass]) -> None:
     kinds: dict[Kind, list[Field]] = data_class.get_fields_by_kind()
 
     tab: str = " " * 4
@@ -138,28 +129,24 @@ def create_table(
     sql += f"{tab}row_id INTEGER PRIMARY KEY,\n"
     for f in kinds[Kind.POD]:
         sql += f"{tab}{f.name} {f.sql_type} NOT NULL,\n"
-    if parent_cls_name is not None:
-        sql += f"{tab}{parent_cls_name}_id INTEGER NOT NULL,\n"
     sql = sql.rstrip(",\n") + "\n"
     sql += ");\n"
 
-    for f in kinds[Kind.DC]:
-        other_data_class: type[DataClass] = f.py_type
-        create_table(conn, other_data_class, parent_cls_name=data_class.table_name)
-
     for f in kinds[Kind.STRUCTURED]:
         sql += "\n"
-        sql += f"CREATE TABLE IF NOT EXISTS {data_class.table_name_structured_compound(f.name)} (\n"
+        sql += f"CREATE TABLE IF NOT EXISTS {data_class.table_name_munged(f.name)} (\n"
         sql += f"{tab}{data_class.table_name}_id INTEGER NOT NULL,\n"
         sql += f"{tab}{STRUCTURED_VALUE_COL} {f.sql_type} NOT NULL\n"
         sql += ");\n"
 
-    for f in kinds[Kind.COMPOUND]:
+    fields_dc_compound: list[Field] = kinds[Kind.DC]
+    fields_dc_compound.extend(kinds[Kind.COMPOUND])
+    for f in fields_dc_compound:
         other_data_class: type[DataClass] = f.py_type
         create_table(conn, other_data_class)
 
         sql += "\n"
-        sql += f"CREATE TABLE IF NOT EXISTS {data_class.table_name_structured_compound(other_data_class.table_name)} (\n"
+        sql += f"CREATE TABLE IF NOT EXISTS {data_class.table_name_munged(other_data_class.table_name)} (\n"
         sql += f"{tab}{data_class.table_name}_id INTEGER NOT NULL,\n"
         sql += f"{tab}{other_data_class.table_name}_id INTEGER NOT NULL\n"
         sql += f");"
@@ -168,33 +155,25 @@ def create_table(
     conn.commit()
 
 
-def _insert_record(
-    cur: sqlite3.Cursor,
-    record: DataClass,
-    parent_table_name: str | None = None,
-    parent_id: int | None = None,
-) -> int:
-    cur.execute(
-        _sql_cmd_insert_pod_dc(record, parent_table_name=parent_table_name),
-        record.marshall_values_pod(parent_id=parent_id),
-    )
+def _insert_record(cur: sqlite3.Cursor, record: DataClass) -> int:
+    cur.execute(_sql_cmd_insert_pod(record), record.marshall_values_pod())
     row_id: int | None = cur.lastrowid
     if row_id is None:
         raise RuntimeError("Insertion was unsuccessful")
-
-    for dc_field in record.fields_dc:
-        dc_obj: DataClass = getattr(record, dc_field.name)
-        _insert_record(
-            cur, dc_obj, parent_table_name=record.table_name, parent_id=row_id
-        )
 
     for struct_field in record.fields_structured:
         sql_cmd: str = _sql_cmd_insert_structured(record, struct_field)
         for values in record.marshall_values_structured(row_id, struct_field):
             cur.execute(sql_cmd, values)
 
+    for dc_field in record.fields_dc:
+        sql_cmd: str = _sql_cmd_insert_joined(record, dc_field)
+        dc_obj: DataClass = getattr(record, dc_field.name)
+        dc_row_id: int = _insert_record(cur, dc_obj)
+        cur.execute(sql_cmd, (row_id, dc_row_id))
+
     for comp_field in record.fields_compound:
-        sql_cmd: str = _sql_cmd_insert_compound(record, comp_field)
+        sql_cmd: str = _sql_cmd_insert_joined(record, comp_field)
         for item in getattr(record, comp_field.name):
             comp_row_id: int = _insert_record(cur, item)
             cur.execute(sql_cmd, (row_id, comp_row_id))
@@ -202,33 +181,27 @@ def _insert_record(
     return row_id
 
 
-def _sql_cmd_insert_pod_dc(
-    record: DataClass, parent_table_name: str | None = None
-) -> str:
-    if len(record.fields_pod) == 0 and parent_table_name is None:
+def _sql_cmd_insert_pod(record: DataClass) -> str:
+    if len(record.fields_pod) == 0:
         return f"INSERT INTO {record.table_name} DEFAULT VALUES"
 
-    placeholders: str = ", ".join(
-        "?" * (len(record.fields_pod) + int(parent_table_name is not None))
-    )
+    placeholders: str = ", ".join("?" * len(record.fields_pod))
     columns: str = ", ".join(f.name for f in record.fields_pod)
-    if parent_table_name is not None:
-        columns += f", {parent_table_name}_id"
     return f"INSERT INTO {record.table_name} ({columns}) VALUES ({placeholders})"
 
 
 def _sql_cmd_insert_structured(record: DataClass, field: Field) -> str:
     cols: list[str] = [f"{record.table_name}_id", STRUCTURED_VALUE_COL]
     placeholders: str = ", ".join("?" * len(cols))
-    return f"INSERT INTO {record.table_name_structured_compound(field.name)} ({", ".join(cols)}) VALUES ({placeholders})"
+    return f"INSERT INTO {record.table_name_munged(field.name)} ({", ".join(cols)}) VALUES ({placeholders})"
 
 
-def _sql_cmd_insert_compound(record: DataClass, field: Field) -> str:
+def _sql_cmd_insert_joined(record: DataClass, field: Field) -> str:
     other_data_class: type[DataClass] = field.py_type
-    comp_table_name: str = other_data_class.table_name
-    cols: list[str] = [f"{record.table_name}_id", f"{comp_table_name}_id"]
+    joined_table_name: str = other_data_class.table_name
+    cols: list[str] = [f"{record.table_name}_id", f"{joined_table_name}_id"]
     placeholders: str = ", ".join("?" * len(cols))
-    return f"INSERT INTO {record.table_name_structured_compound(comp_table_name)} ({", ".join(cols)}) VALUES ({placeholders})"
+    return f"INSERT INTO {record.table_name_munged(joined_table_name)} ({", ".join(cols)}) VALUES ({placeholders})"
 
 
 def insert_record(conn: sqlite3.Connection, record: DataClass) -> None:
@@ -255,6 +228,7 @@ def select_all_records[T: DataClass](
         sel_stmt += f" WHERE row_id = {row_id}"
     cur.execute(sel_stmt)
     records: list[list[PodData]] = [list(r) for r in cur.fetchall()]
+
     objects: list[T] = []
     for row in records:
         rec_id: int = t.cast(int, row.pop(0))
@@ -262,33 +236,45 @@ def select_all_records[T: DataClass](
             f_p.name: f_p.py_type(v) for f_p, v in zip(data_cls.fields_pod, row)
         }
         obj_kwargs["row_id"] = rec_id
+
+        for f_s in data_cls.fields_structured:
+            cur.execute(
+                f"SELECT * FROM {data_cls.table_name_munged(f_s.name)} WHERE {data_cls.table_name}_id = {rec_id}"
+            )
+            rows_struct: list[tuple] = cur.fetchall()
+            obj_kwargs[f_s.name] = [r[1] for r in rows_struct]
+
         for f_d in data_cls.fields_dc:
             dc_type: type[DataClass] = f_d.py_type
             cur.execute(
-                f"SELECT * FROM {dc_type.table_name} WHERE {data_cls.table_name}_id = {rec_id}"
+                f"SELECT * FROM {data_cls.table_name_munged(dc_type.table_name)} WHERE {data_cls.table_name}_id = {rec_id}"
             )
             rows_dc: list[tuple] = cur.fetchall()
             if not len(rows_dc) == 1:
                 raise RuntimeError(
                     f"Did not find exactly one row for {data_cls.table_name}_id={rec_id}"
                 )
-            obj_kwargs[f_d.name] = rows_dc[0][0]
-        for f_s in data_cls.fields_structured:
-            cur.execute(
-                f"SELECT * FROM {data_cls.table_name_structured_compound(f_s.name)} WHERE {data_cls.table_name}_id = {rec_id}"
-            )
-            rows_struct: list[tuple] = cur.fetchall()
-            obj_kwargs[f_s.name] = [r[1] for r in rows_struct]
+            dc_id: int = rows_dc[0][1]
+            recs_dc: list[DataClass] = select_all_records(conn, dc_type, row_id=dc_id)
+            if not len(recs_dc) == 1:
+                raise RuntimeError(
+                    f"Did not find exactly one record for {dc_type.table_name}_id={dc_id}"
+                )
+            obj_kwargs[f_d.name] = recs_dc[0]
+
         for f_c in data_cls.fields_compound:
+            comp_type: type[DataClass] = f_c.py_type
             cur.execute(
-                f"SELECT * FROM {data_cls.table_name_structured_compound(f_c.py_type.__name__)} WHERE {data_cls.table_name}_id = {rec_id}"
+                f"SELECT * FROM {data_cls.table_name_munged(comp_type.table_name)} WHERE {data_cls.table_name}_id = {rec_id}"
             )
             rows_comp: list[tuple] = cur.fetchall()
             items: list = []
             for _, comp_id in rows_comp:
-                items.extend(select_all_records(conn, f_c.py_type, row_id=comp_id))
+                items.extend(select_all_records(conn, comp_type, row_id=comp_id))
             obj_kwargs[f_c.name] = items
+
         objects.append(data_cls(**obj_kwargs))
+
     return objects
 
 

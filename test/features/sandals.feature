@@ -101,6 +101,50 @@ Feature: Sandals
             | fibonacci | 0, 1, 1, 2, 3, 5, 8 |
             | squares   | 0, 1, 4, 9, 16, 25  |
 
+    Scenario: Nested data-class data
+        Given the following JSON schema
+            """
+            {
+                "version-id": "abcdefg",
+                "version-sequence": 1,
+                "classes": [
+                    {
+                        "name": "Fruit",
+                        "properties": [
+                            {
+                                "name": "name",
+                                "type": "str"
+                            },
+                            {
+                                "name": "color",
+                                "type": "str"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Tree",
+                        "properties": [
+                            {
+                                "name": "classification",
+                                "type": "str"
+                            },
+                            {
+                                "name": "fruit",
+                                "type": "Fruit"
+                            }
+                        ]
+                    }
+                ]
+            }
+            """
+        When we run the generate command
+        Then we should be able to persist the following Tree records using the generated code
+            | type  | name     | color  | classification | fruit    |
+            | Fruit | fig      | purple | --             | --       |
+            | Fruit | pine nut | brown  | --             | --       |
+            | Tree  | --       | --     | deciduous      | fig      |
+            | Tree  | --       | --     | evergreen      | pine nut |
+
     Scenario: Data-class and compound data
         Given the following JSON schema
             """
