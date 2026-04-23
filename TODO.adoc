@@ -1,0 +1,4 @@
+= To Do
+
+* [ ] Check that all custom types named are represented in the list of classes.
+* [ ] Allow Python classes to inherit from `sandals.DataClass` so they can also define custom methods, including custom database marshaling strategies.
