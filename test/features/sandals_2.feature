@@ -5,16 +5,7 @@ Feature: Sandals
     # schemas with Python class templates.
 
     Scenario: Plain old data
-        Given the following metadata and class templates in module pod
-            """
-            {
-                "version-id": "abcdefg",
-                "version-sequence": 1,
-                "classes": [
-                    "RadioStation"
-                ]
-            }
-            """
+        Given metadata and class definitions in module test.templates.pod
         When we run the generate command 2
         Then we should be able to persist the following RadioStation records using the generated code 2
             | count | gt_hundo | number | description |
@@ -22,3 +13,44 @@ Feature: Sandals
             | 4     | True     | 107.7  | The End     |
             | 5     | True     | 105.3  | Spirit      |
             | 8     | False    | 98.1   | KING-FM     |
+
+    Scenario: Structured data
+        Given metadata and class definitions in module test.templates.structured
+        When we run the generate command 2
+        Then we should be able to persist the following CastOfCharacters records using the generated code 2
+            | monikers       | ages       |
+            | bob, joe, fred | 83, 27, 70 |
+            | ann, sue, jane | 33, 44, 55 |
+
+    Scenario: Mix of POD and structured data
+        Given metadata and class definitions in module test.templates.mix_pod_structured
+        When we run the generate command 2
+        Then we should be able to persist the following NumberSequence records using the generated code 2
+            | title     | integers            |
+            | fibonacci | 0, 1, 1, 2, 3, 5, 8 |
+            | squares   | 0, 1, 4, 9, 16, 25  |
+
+    Scenario: Nested data-class data
+        Given metadata and class definitions in module test.templates.nested
+        When we run the generate command 2
+        Then we should be able to persist the following Tree records using the generated code 2
+            | type  | name     | color  | classification | fruit    |
+            | Fruit | fig      | purple | --             | --       |
+            | Fruit | pine nut | brown  | --             | --       |
+            | Tree  | --       | --     | deciduous      | fig      |
+            | Tree  | --       | --     | evergreen      | pine nut |
+
+    Scenario: Data-class and compound data
+        Given metadata and class definitions in module test.templates.dc_and_compound
+        When we run the generate command 2
+        Then we should be able to persist the following Box records using the generated code 2
+            | type  | color  | shape  | items                  | name   | price | n_sides |
+            | Box   | red    | square | slinky, gem            | --     | --    | --      |
+            | Box   | yellow | circle | marble, slinky, marble | --     | --    | --      |
+            | Item  | --     | --     | --                     | slinky | 12.12 | --      |
+            | Item  | --     | --     | --                     | gem    | 55.80 | --      |
+            | Item  | --     | --     | --                     | marble | 6.00  | --      |
+            | Shape | --     | --     | --                     | circle | --    | 1       |
+            | Shape | --     | --     | --                     | square | --    | 4       |
+
+# TODO: Scenario with nested data-class/compound data
