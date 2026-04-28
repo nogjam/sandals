@@ -1,14 +1,13 @@
 import importlib
-import json
 from pathlib import Path
 import sqlite3
-import typing as t
+from types import ModuleType
 
 from behave import *  # type: ignore # Star imports are generally a bad idea, but we're doing one anyway, encouraged by Behave.
 from behave.model import Table
 from behave.runner import Context
 
-from sandals.core import generate_python_from_json_data
+from sandals.core import generate_python_from_class_definitions
 from test.util.name_storage import NameStorage
 
 
@@ -18,22 +17,20 @@ PYTHON_RESULT_FILE_PATH = REPO_ROOT / "test" / "output" / PYTHON_RESULT_FILE_NAM
 
 
 class NameCapsule(NameStorage):
-    json_schema: dict[str, t.Any]
+    module: ModuleType
 
 
 NAME_CAP: NameCapsule = NameCapsule()
 
 
-@given("the following JSON schema")
-def _(ctx: Context) -> None:
-    if ctx.text is None:
-        raise RuntimeError("Did not find text in the context")
-    NAME_CAP.json_schema = json.loads(ctx.text)  # type: ignore # Assume ctx.text is of type str.
+@given("metadata and class definitions in module {mod_name}")
+def _(ctx: Context, mod_name: str) -> None:
+    NAME_CAP.module = importlib.import_module(mod_name)
 
 
 @when("we run the generate command")
 def _(ctx: Context) -> None:
-    python_result: str = generate_python_from_json_data(NAME_CAP.json_schema)
+    python_result: str = generate_python_from_class_definitions(NAME_CAP.module)
 
     with open(PYTHON_RESULT_FILE_PATH, "w") as pf:
         pf.write(python_result)

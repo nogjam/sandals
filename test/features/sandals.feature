@@ -2,39 +2,10 @@ Feature: Sandals
     # In order to make database schema definition easier,
     # As a developer,
     # I want to be able to define Python data classes and corresponding SQLite
-    # schemas with plain JSON.
+    # schemas with Python class templates.
 
     Scenario: Plain old data
-        Given the following JSON schema
-            """
-            {
-                "version-id": "abcdefg",
-                "version-sequence": 1,
-                "classes": [
-                    {
-                        "name": "RadioStation",
-                        "properties": [
-                            {
-                                "name": "count",
-                                "type": "int"
-                            },
-                            {
-                                "name": "gt_hundo",
-                                "type": "bool"
-                            },
-                            {
-                                "name": "number",
-                                "type": "float"
-                            },
-                            {
-                                "name": "description",
-                                "type": "str"
-                            }
-                        ]
-                    }
-                ]
-            }
-            """
+        Given metadata and class definitions in module test.templates.pod
         When we run the generate command
         Then we should be able to persist the following RadioStation records using the generated code
             | count | gt_hundo | number | description |
@@ -44,28 +15,7 @@ Feature: Sandals
             | 8     | False    | 98.1   | KING-FM     |
 
     Scenario: Structured data
-        Given the following JSON schema
-            """
-            {
-                "version-id": "abcdefg",
-                "version-sequence": 1,
-                "classes": [
-                    {
-                        "name": "CastOfCharacters",
-                        "properties": [
-                            {
-                                "name": "monikers",
-                                "type": "list[str]"
-                            },
-                            {
-                                "name": "ages",
-                                "type": "list[int]"
-                            }
-                        ]
-                    }
-                ]
-            }
-            """
+        Given metadata and class definitions in module test.templates.structured
         When we run the generate command
         Then we should be able to persist the following CastOfCharacters records using the generated code
             | monikers       | ages       |
@@ -73,28 +23,7 @@ Feature: Sandals
             | ann, sue, jane | 33, 44, 55 |
 
     Scenario: Mix of POD and structured data
-        Given the following JSON schema
-            """
-            {
-                "version-id": "abcdefg",
-                "version-sequence": 1,
-                "classes": [
-                    {
-                        "name": "NumberSequence",
-                        "properties": [
-                            {
-                                "name": "title",
-                                "type": "str"
-                            },
-                            {
-                                "name": "integers",
-                                "type": "list[int]"
-                            }
-                        ]
-                    }
-                ]
-            }
-            """
+        Given metadata and class definitions in module test.templates.mix_pod_structured
         When we run the generate command
         Then we should be able to persist the following NumberSequence records using the generated code
             | title     | integers            |
@@ -102,41 +31,7 @@ Feature: Sandals
             | squares   | 0, 1, 4, 9, 16, 25  |
 
     Scenario: Nested data-class data
-        Given the following JSON schema
-            """
-            {
-                "version-id": "abcdefg",
-                "version-sequence": 1,
-                "classes": [
-                    {
-                        "name": "Fruit",
-                        "properties": [
-                            {
-                                "name": "name",
-                                "type": "str"
-                            },
-                            {
-                                "name": "color",
-                                "type": "str"
-                            }
-                        ]
-                    },
-                    {
-                        "name": "Tree",
-                        "properties": [
-                            {
-                                "name": "classification",
-                                "type": "str"
-                            },
-                            {
-                                "name": "fruit",
-                                "type": "Fruit"
-                            }
-                        ]
-                    }
-                ]
-            }
-            """
+        Given metadata and class definitions in module test.templates.nested
         When we run the generate command
         Then we should be able to persist the following Tree records using the generated code
             | type  | name     | color  | classification | fruit    |
@@ -146,58 +41,7 @@ Feature: Sandals
             | Tree  | --       | --     | evergreen      | pine nut |
 
     Scenario: Data-class and compound data
-        Given the following JSON schema
-            """
-            {
-                "version-id": "abcdefg",
-                "version-sequence": 1,
-                "classes": [
-                    {
-                        "name": "Shape",
-                        "properties": [
-                            {
-                                "name": "name",
-                                "type": "str"
-                            },
-                            {
-                                "name": "n_sides",
-                                "type": "int"
-                            }
-                        ]
-                    },
-                    {
-                        "name": "Item",
-                        "properties": [
-                            {
-                                "name": "name",
-                                "type": "str"
-                            },
-                            {
-                                "name": "price",
-                                "type": "float"
-                            }
-                        ]
-                    },
-                    {
-                        "name": "Box",
-                        "properties": [
-                            {
-                                "name": "color",
-                                "type": "str"
-                            },
-                            {
-                                "name": "shape",
-                                "type": "Shape"
-                            },
-                            {
-                                "name": "items",
-                                "type": "list[Item]"
-                            }
-                        ]
-                    }
-                ]
-            }
-            """
+        Given metadata and class definitions in module test.templates.dc_and_compound
         When we run the generate command
         Then we should be able to persist the following Box records using the generated code
             | type  | color  | shape  | items                  | name   | price | n_sides |

@@ -20,11 +20,11 @@ class PodSqlite(t.NamedTuple):
     sql: str
 
 
-SQLITE_POD_TYPE_MAP: t.Final[dict[str, PodSqlite]] = {
-    "bool": PodSqlite(type_=bool, sql="INTEGER"),
-    "int": PodSqlite(type_=int, sql="INTEGER"),
-    "float": PodSqlite(type_=float, sql="REAL"),
-    "str": PodSqlite(type_=str, sql="TEXT"),
+SQLITE_POD_TYPE_MAP: t.Final[dict[type, PodSqlite]] = {
+    bool: PodSqlite(type_=bool, sql="INTEGER"),
+    int: PodSqlite(type_=int, sql="INTEGER"),
+    float: PodSqlite(type_=float, sql="REAL"),
+    str: PodSqlite(type_=str, sql="TEXT"),
 }
 
 
