@@ -46,17 +46,17 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
     tab: str = " " * 4
     code: str = ""
     first: bool = True
-    for c in tcs:
+    for tc in tcs:
         if not first:
             code += "\n\n"
         first = False
 
-        code += f"class {c.__name__}(DataClass):\n"
+        code += f"class {tc.__name__}(DataClass):\n"
 
         # Class attributes
-        code += f'{tab}table_name: str = "{pascal_case_to_snake_case(c.__name__)}"\n'
+        code += f'{tab}table_name: str = "{pascal_case_to_snake_case(tc.__name__)}"\n'
         code += f"{tab}fields: list[Field] = [\n"
-        annotations: dict[str, type] = inspect.get_annotations(c)
+        annotations: dict[str, type] = inspect.get_annotations(tc)
         p_name: str
         p_type: type
         for p_name, p_type in annotations.items():
@@ -117,7 +117,19 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
 
         # __eq__()
         code += f"\n"
-        code += f'{tab}def __eq__(self, other: "{c.__name__}") -> bool:\n'
+        code += f'{tab}def __eq__(self, other: "{tc.__name__}") -> bool:\n'
         code += f"{tab}{tab}return all(getattr(self, f.name) == getattr(other, f.name) for f in self.fields)\n"
+
+        # Custom methods
+        # ASSUMPTION: All data class attributes are defined immediately under
+        # the class declaration. Custom methods are anything defined after the
+        # first blank line encountered in the class' source code.
+        source_lines: list[str] = inspect.getsourcelines(tc)[0]
+        try:
+            idx_first_blank_line: int = source_lines.index("\n")
+        except ValueError:
+            idx_first_blank_line: int = -1
+        if idx_first_blank_line >= 0:
+            code += "".join(source_lines[idx_first_blank_line:])
 
     return code

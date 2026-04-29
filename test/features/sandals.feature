@@ -53,4 +53,13 @@ Feature: Sandals
             | Shape | --     | --     | --                     | circle | --    | 1       |
             | Shape | --     | --     | --                     | square | --    | 4       |
 
+    Scenario: DataClass with other members
+        Given metadata and class definitions in module test.templates.other_members
+        When we run the generate command
+        Then we should be able to persist the following Money records using the generated code
+            | milliunits | dollars | cents | repr  | get_deposit_str |
+            | 9034       | 9       | 3     | $9.03 | Deposit $9.03   |
+            | 101        | 0       | 10    | $0.10 | Deposit $0.10   |
+        And we should be able to use the Money class' methods
+
 # TODO: Scenario with nested data-class/compound data

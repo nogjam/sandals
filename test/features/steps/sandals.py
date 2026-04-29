@@ -10,7 +10,6 @@ from behave.runner import Context
 from sandals.core import generate_python_from_class_definitions
 from test.util.name_storage import NameStorage
 
-
 REPO_ROOT: Path = Path(__file__).parents[3]
 PYTHON_RESULT_FILE_NAME = "result.py"
 PYTHON_RESULT_FILE_PATH = REPO_ROOT / "test" / "output" / PYTHON_RESULT_FILE_NAME
@@ -18,6 +17,8 @@ PYTHON_RESULT_FILE_PATH = REPO_ROOT / "test" / "output" / PYTHON_RESULT_FILE_NAM
 
 class NameCapsule(NameStorage):
     module: ModuleType
+    selected: list
+    money_expected: list[tuple[int, int, str, str]]
 
 
 NAME_CAP: NameCapsule = NameCapsule()
@@ -144,6 +145,22 @@ def _(ctx: Context, class_name: str) -> None:
                     box.shape = shapes[shape_name]
                     boxes.append(box)
                 return boxes
+            case "Money":
+                moneys: list[cls] = []
+                NAME_CAP.money_expected = []
+                for row in table:
+                    moneys.append(
+                        cls.from_dict_with_cast({"milliunits": row["milliunits"]})
+                    )
+                    NAME_CAP.money_expected.append(
+                        (
+                            int(row["dollars"]),
+                            int(row["cents"]),
+                            row["repr"],
+                            row["get_deposit_str"],
+                        ),
+                    )
+                return moneys
             case _:
                 return []
 
@@ -163,6 +180,14 @@ def _(ctx: Context, class_name: str) -> None:
 
     inserted, selected = _test_round_trip(getattr(result, class_name), table)
 
+    NAME_CAP.selected = selected
+
     for i, pair in enumerate(zip(selected, inserted)):
         sel, ins = pair
         assert sel == ins, f"{i}: {sel} != {ins}"
+
+
+@then("we should be able to use the Money class' methods")
+def _(ctx: Context) -> None:
+    for exp, money in zip(NAME_CAP.money_expected, NAME_CAP.selected):
+        assert (money.dollars, money.cents, repr(money), money.get_deposit_str()) == exp
