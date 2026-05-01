@@ -18,7 +18,7 @@ PYTHON_RESULT_FILE_PATH = REPO_ROOT / "test" / "output" / PYTHON_RESULT_FILE_NAM
 class NameCapsule(NameStorage):
     module: ModuleType
     selected: list
-    money_expected: list[tuple[int, int, str, str]]
+    money_expected: list[tuple[int, int, str]]
 
 
 NAME_CAP: NameCapsule = NameCapsule()
@@ -52,12 +52,12 @@ def _(ctx: Context, class_name: str) -> None:
     importlib.reload(result)
 
     def _get_dict_data_from_table(
-        cls: type[result.DataClass], table: Table
+        dc: type[result.DataClass], table: Table
     ) -> list[result.DataClass]:
         match class_name:
             case "RadioStation":
                 return [
-                    cls.from_dict_with_cast(
+                    dc.from_dict_with_cast(
                         {
                             "count": row["count"],
                             "gt_hundo": row["gt_hundo"],
@@ -69,7 +69,7 @@ def _(ctx: Context, class_name: str) -> None:
                 ]
             case "CastOfCharacters":
                 return [
-                    cls.from_dict_with_cast(
+                    dc.from_dict_with_cast(
                         {
                             "monikers": [x.strip() for x in row["monikers"].split(",")],
                             "ages": [x.strip() for x in row["ages"].split(",")],
@@ -79,7 +79,7 @@ def _(ctx: Context, class_name: str) -> None:
                 ]
             case "NumberSequence":
                 return [
-                    cls.from_dict_with_cast(
+                    dc.from_dict_with_cast(
                         {
                             "title": row["title"],
                             "integers": [i.strip() for i in row["integers"].split(",")],
@@ -146,21 +146,42 @@ def _(ctx: Context, class_name: str) -> None:
                     boxes.append(box)
                 return boxes
             case "Money":
-                moneys: list[cls] = []
+                moneys: list[dc] = []
                 NAME_CAP.money_expected = []
                 for row in table:
                     moneys.append(
-                        cls.from_dict_with_cast({"milliunits": row["milliunits"]})
+                        dc.from_dict_with_cast({"milliunits": row["milliunits"]})
                     )
                     NAME_CAP.money_expected.append(
                         (
                             int(row["dollars"]),
                             int(row["cents"]),
-                            row["repr"],
                             row["get_deposit_str"],
                         ),
                     )
                 return moneys
+            case "Account":
+                accounts: list[dc] = []
+                NAME_CAP.money_expected = []
+                for row in table:
+                    accounts.append(
+                        dc.from_dict_with_cast(
+                            {
+                                "number": row["account"],
+                                "transactions": [
+                                    int(t.strip()) for t in row["transactions"].split(",")
+                                ],
+                            }
+                        )
+                    )
+                    NAME_CAP.money_expected.append(
+                        (
+                            int(row["dollars"]),
+                            int(row["cents"]),
+                            row["get_deposit_str"],
+                        ),
+                    )
+                return accounts
             case _:
                 return []
 
@@ -190,4 +211,11 @@ def _(ctx: Context, class_name: str) -> None:
 @then("we should be able to use the Money class' methods")
 def _(ctx: Context) -> None:
     for exp, money in zip(NAME_CAP.money_expected, NAME_CAP.selected):
-        assert (money.dollars, money.cents, repr(money), money.get_deposit_str()) == exp
+        assert (money.dollars, money.cents, money.get_deposit_str()) == exp
+
+
+@then("we should be able to use the Amount class' methods")
+def _(ctx: Context) -> None:
+    for exp, account in zip(NAME_CAP.money_expected, NAME_CAP.selected):
+        first_txn = account.transactions[0]
+        assert (first_txn.dollars, first_txn.cents, first_txn.get_deposit_str()) == exp

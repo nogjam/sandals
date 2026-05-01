@@ -5,7 +5,7 @@ from enum import Enum, auto
 import sqlite3
 import typing as t
 
-
+MARSHAL_METHOD_NAME: t.Final[str] = "marshal"
 STRUCTURED_VALUE_COL: t.Final[str] = "value"
 
 
@@ -29,7 +29,8 @@ SQLITE_POD_TYPE_MAP: t.Final[dict[type, PodSqlite]] = {
 
 
 class Kind(Enum):
-    # Plain Ol' Data -- bool, int, float, str
+    # Plain Ol' Data -- bool, int, float, str, or any class that can be
+    # marshalled to one of these
     POD = 1
     # Lists of POD
     STRUCTURED = auto()
@@ -48,6 +49,35 @@ class Field:
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self.name!r}, {self.py_type.__name__}, {self.sql_type!r}, {self.kind.name})"
+
+
+class PodWrapper:
+    """Holds data going to and coming from SQLite databases. Said data can be
+    represented as a single POD type.
+
+    It is assumed that all fields are of kind POD.
+    """
+
+    fields: list[Field]
+
+    @classmethod
+    def from_dict_with_cast(cls, data: dict[str, t.Any]) -> "PodWrapper":
+        cast: dict[str, t.Any] = {}
+
+        for f in cls.fields:
+            try:
+                v: t.Any = data[f.name]
+            except KeyError as e:
+                raise KeyError(f"Field {f.name!r} not found in given data") from e
+
+            try:
+                cast[f.name] = f.py_type(v)
+            except TypeError as e:
+                raise TypeError(
+                    f"Field {f.name!r} could not be cast to {f.py_type.__name__} from {type(v).__name__}"
+                ) from e
+
+        return cls(**cast)
 
 
 class DataClass:
@@ -96,8 +126,6 @@ class DataClass:
                 try:
                     if isinstance(v, list):
                         cast[f.name] = list(map(f.py_type, v))
-                    elif isinstance(v, DataClass):
-                        is_dc = True
                     else:
                         cast[f.name] = f.py_type(v)
                 except TypeError as e:
@@ -111,14 +139,24 @@ class DataClass:
     def table_name_munged(cls, other_name: str) -> str:
         return f"{cls.table_name}_{other_name}"
 
-    def marshall_values_pod(self) -> tuple[PodData, ...]:
-        return tuple(getattr(self, f.name) for f in self.fields_pod)
+    def marshal_values_pod(self) -> tuple[PodData, ...]:
+        return tuple(
+            (
+                getattr(p, MARSHAL_METHOD_NAME)()
+                if isinstance((p := getattr(self, f.name)), PodWrapper)
+                else p
+            )
+            for f in self.fields_pod
+        )
 
-    def marshall_values_structured(
+    def marshal_values_structured(
         self, row_id: int, field: Field
     ) -> cabc.Iterator[tuple[int, PodData]]:
         for v in getattr(self, field.name):
-            yield (row_id, v)
+            yield (
+                row_id,
+                getattr(v, MARSHAL_METHOD_NAME)() if isinstance(v, PodWrapper) else v,
+            )
 
 
 def create_table(conn: sqlite3.Connection, data_class: type[DataClass]) -> None:
@@ -156,14 +194,14 @@ def create_table(conn: sqlite3.Connection, data_class: type[DataClass]) -> None:
 
 
 def _insert_record(cur: sqlite3.Cursor, record: DataClass) -> int:
-    cur.execute(_sql_cmd_insert_pod(record), record.marshall_values_pod())
+    cur.execute(_sql_cmd_insert_pod(record), record.marshal_values_pod())
     row_id: int | None = cur.lastrowid
     if row_id is None:
         raise RuntimeError("Insertion was unsuccessful")
 
     for struct_field in record.fields_structured:
         sql_cmd: str = _sql_cmd_insert_structured(record, struct_field)
-        for values in record.marshall_values_structured(row_id, struct_field):
+        for values in record.marshal_values_structured(row_id, struct_field):
             cur.execute(sql_cmd, values)
 
     for dc_field in record.fields_dc:
@@ -242,7 +280,7 @@ def select_all_records[T: DataClass](
                 f"SELECT * FROM {data_cls.table_name_munged(f_s.name)} WHERE {data_cls.table_name}_id = {rec_id}"
             )
             rows_struct: list[tuple] = cur.fetchall()
-            obj_kwargs[f_s.name] = [r[1] for r in rows_struct]
+            obj_kwargs[f_s.name] = [f_s.py_type(r[1]) for r in rows_struct]
 
         for f_d in data_cls.fields_dc:
             dc_type: type[DataClass] = f_d.py_type

@@ -57,9 +57,18 @@ Feature: Sandals
         Given metadata and class definitions in module test.templates.other_members
         When we run the generate command
         Then we should be able to persist the following Money records using the generated code
-            | milliunits | dollars | cents | repr  | get_deposit_str |
-            | 9034       | 9       | 3     | $9.03 | Deposit $9.03   |
-            | 101        | 0       | 10    | $0.10 | Deposit $0.10   |
+            | milliunits | dollars | cents | get_deposit_str |
+            | 9034       | 9       | 3     | Deposit $9.03   |
+            | 101        | 0       | 10    | Deposit $0.10   |
         And we should be able to use the Money class' methods
+
+    Scenario: Marshallable POD class
+        Given metadata and class definitions in module test.templates.marshallable
+        When we run the generate command
+        Then we should be able to persist the following Account records using the generated code
+            | account | transactions   | dollars | cents | get_deposit_str |
+            | 1234    | 9000, 1230, 80 | 9       | 0     | Deposit $9.00   |
+            | 5678    | 12390, 120     | 12      | 39    | Deposit $12.39  |
+        And we should be able to use the Amount class' methods
 
 # TODO: Scenario with nested data-class/compound data

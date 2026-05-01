@@ -1,6 +1,6 @@
 [project]
 name = "sandals"
-version = "0.1.0"
+version = "0.1.1"
 description = "JSON-defined SQLite database bindings"
 authors = [{ name = "nogjam", email = "nathaniel-j-jones@proton.me" }]
 license = { text = "MIT" }

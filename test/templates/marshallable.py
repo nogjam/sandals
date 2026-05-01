@@ -7,8 +7,11 @@ SANDALS_VERSION_ID: t.Final[str] = "abcdefg"
 SANDALS_VERSION_SEQUENCE: t.Final[int] = 1
 
 
-class Money(BindBase):
+class Amount(BindBase):
     milliunits: int
+
+    def marshal(self) -> int:
+        return self.milliunits
 
     @property
     def dollars(self) -> int:
@@ -20,3 +23,8 @@ class Money(BindBase):
 
     def get_deposit_str(self) -> str:
         return f"Deposit ${self.dollars}.{self.cents:>02}"
+
+
+class Account(BindBase):
+    number: int
+    transactions: list[Amount]
