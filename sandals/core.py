@@ -1,5 +1,6 @@
 """Core functionality of sandals."""
 
+from datetime import date, datetime
 import inspect
 from types import ModuleType
 import typing as t
@@ -19,6 +20,18 @@ def _get_members_in_order_of_definition(module: ModuleType) -> list[type]:
         (x[1] for x in inspect.getmembers(module, inspect.isclass)),
         key=_line_number_of_member_def,
     )
+
+
+def _get_annotation_strings(tc: type[BindBase], ann: dict[str, type]) -> dict[str, str]:
+    ann_str: dict[str, str] = {}
+    for line in inspect.getsource(tc).splitlines():
+        p_name, p_type_str = line.strip().split(":")
+        p_name = p_name.strip()
+        p_type_str = p_type_str.strip()
+        if p_name not in ann:
+            return {}
+        ann_str[p_name] = p_type_str
+    return ann_str
 
 
 def generate_python_from_class_definitions(module: ModuleType) -> str:
@@ -67,6 +80,7 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
 
         code += f"{tab}fields: list[Field] = [\n"
         annotations: dict[str, type] = inspect.get_annotations(tc)
+        ann_str: dict[type, str] = _get_annotation_strings(tc, annotations)
         p_name: str
         p_type: type
         for p_name, p_type in annotations.items():
@@ -99,11 +113,19 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
             else:
                 pod_type = inner_type
 
+            py_type: str = inner_type.__name__
+
+            unmarshal: str = inner_type.__name__
+            if inner_type is datetime:
+                unmarshal = "datetime.fromisoformat"
+            elif inner_type is date:
+                unmarshal = "date.fromisoformat"
+
             sql_type: str = (
                 SQLITE_POD_TYPE_MAP[pod_type].sql if pod_type is not None else "--"
             )
 
-            code += f'{tab}{tab}Field("{p_name}", {inner_type.__name__}, "{sql_type}", {field_kind}),\n'
+            code += f'{tab}{tab}Field("{p_name}", {py_type}, {unmarshal}, "{sql_type}", {field_kind}),\n'
 
         code += f"{tab}]\n"
 

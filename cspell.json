@@ -9,6 +9,7 @@
         "hundo",
         "lastrowid",
         "pycache",
-        "pytest"
+        "pytest",
+        "unmarshal"
     ]
 }

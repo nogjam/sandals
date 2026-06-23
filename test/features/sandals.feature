@@ -8,11 +8,11 @@ Feature: Sandals
         Given metadata and class definitions in module test.templates.pod
         When we run the generate command
         Then we should be able to persist the following RadioStation records using the generated code
-            | count | gt_hundo | number | description |
-            | 1     | False    | 95.7   | KJR-FM      |
-            | 4     | True     | 107.7  | The End     |
-            | 5     | True     | 105.3  | Spirit      |
-            | 8     | False    | 98.1   | KING-FM     |
+            | count | gt_hundo | number | description | last_listen         |
+            | 1     | False    | 95.7   | KJR-FM      | 2025-12-21 12:34:56 |
+            | 4     | True     | 107.7  | The End     | 2025-12-24 12:34:56 |
+            | 5     | True     | 105.3  | Spirit      | 2025-12-25 12:34:56 |
+            | 8     | False    | 98.1   | KING-FM     | 2025-12-28 12:34:56 |
 
     Scenario: Structured data
         Given metadata and class definitions in module test.templates.structured

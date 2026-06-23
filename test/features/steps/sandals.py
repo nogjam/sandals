@@ -63,6 +63,7 @@ def _(ctx: Context, class_name: str) -> None:
                             "gt_hundo": row["gt_hundo"],
                             "number": row["number"],
                             "description": row["description"],
+                            "last_listen": row["last_listen"],
                         }
                     )
                     for row in table
