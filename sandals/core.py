@@ -17,7 +17,11 @@ def _line_number_of_member_def(member: type) -> int:
 
 def _get_members_in_order_of_definition(module: ModuleType) -> list[type]:
     return sorted(
-        (x[1] for x in inspect.getmembers(module, inspect.isclass)),
+        (
+            x[1]
+            for x in inspect.getmembers(module, inspect.isclass)
+            if inspect.getmodule(x[1]) is module
+        ),
         key=_line_number_of_member_def,
     )
 

@@ -1,4 +1,4 @@
-import datetime as dt
+from datetime import datetime
 import typing as t
 
 from sandals.base import BindBase
@@ -13,4 +13,4 @@ class RadioStation(BindBase):
     gt_hundo: bool
     number: float
     description: str
-    last_listen: dt.datetime
+    last_listen: datetime
