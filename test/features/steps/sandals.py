@@ -195,7 +195,7 @@ def _(ctx: Context, class_name: str) -> None:
 
         inserted: list[result.DataClass] = _get_dict_data_from_table(cls, table)
         result.insert_records(conn, inserted)
-        selected: list[result.DataClass] = result.select_all_records(conn, cls)
+        selected: list[result.DataClass] = result.select_records(conn, cls)
         conn.close()
 
         return inserted, selected

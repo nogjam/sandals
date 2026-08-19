@@ -270,13 +270,13 @@ def insert_records(conn: sqlite3.Connection, records: t.Sequence[DataClass]) -> 
     conn.commit()
 
 
-def select_all_records[T: DataClass](
-    conn: sqlite3.Connection, data_cls: type[T], row_id: int | None = None
+def select_records[T: DataClass](
+    conn: sqlite3.Connection, data_cls: type[T], where: str = ""
 ) -> list[T]:
     cur: sqlite3.Cursor = conn.cursor()
     sel_stmt: str = f"SELECT * FROM {data_cls.table_name}"
-    if row_id is not None:
-        sel_stmt += f" WHERE row_id = {row_id}"
+    if where:
+        sel_stmt += " " + where
     cur.execute(sel_stmt)
     records: list[list[PodData]] = [list(r) for r in cur.fetchall()]
 
@@ -306,7 +306,9 @@ def select_all_records[T: DataClass](
                     f"Did not find exactly one row for {data_cls.table_name}_id={rec_id}"
                 )
             dc_id: int = rows_dc[0][1]
-            recs_dc: list[DataClass] = select_all_records(conn, dc_type, row_id=dc_id)
+            recs_dc: list[DataClass] = select_records(
+                conn, dc_type, where=f"WHERE row_id = {dc_id}"
+            )
             if not len(recs_dc) == 1:
                 raise RuntimeError(
                     f"Did not find exactly one record for {dc_type.table_name}_id={dc_id}"
@@ -321,7 +323,11 @@ def select_all_records[T: DataClass](
             rows_comp: list[tuple] = cur.fetchall()
             items: list = []
             for _, comp_id in rows_comp:
-                items.extend(select_all_records(conn, comp_type, row_id=comp_id))
+                items.extend(
+                    select_records(
+                        conn, comp_type, where=f"WHERE row_id = {comp_id}"
+                    )
+                )
             obj_kwargs[f_c.name] = items
 
         objects.append(data_cls(**obj_kwargs))
