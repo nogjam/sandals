@@ -47,6 +47,19 @@ def generate_python_from_template_classes(
     )
 
 
+POD_DEFAULT_VALUE_MAP: t.Final[dict[type, str]] = {
+    bool: "False",
+    int: "0",
+    float: "0.0",
+    str: '""',
+    date: "date(1, 1, 1)",
+    datetime: "datetime(1, 1, 1)",
+}
+assert (
+    POD_DEFAULT_VALUE_MAP.keys() == SQLITE_POD_TYPE_MAP.keys()
+), "Developer: We must have matching keys!"
+
+
 def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
     tab: str = " " * 4
     code: str = ""
@@ -72,6 +85,7 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
 
         code += f"{tab}fields: list[Field] = [\n"
         annotations: dict[str, type] = inspect.get_annotations(tc)
+        # "p" is for "property"
         p_name: str
         p_type: type
         for p_name, p_type in annotations.items():
@@ -175,6 +189,22 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
         code += f"\n"
         code += f'{tab}def __eq__(self, other: "{tc.__name__}") -> bool:\n'
         code += f"{tab}{tab}return all(getattr(self, f.name) == getattr(other, f.name) for f in self.fields)\n"
+
+        # empty()
+
+        code += f"\n"
+        code += f"{tab}@classmethod\n"
+        code += f'{tab}def empty(cls) -> "{tc.__name__}":\n'
+        code += f"{tab}{tab}return cls(\n"
+        for p_name, p_type in annotations.items():
+            code += f"{tab}{tab}{tab}{p_name}="
+            if issubclass(p_type, BindBase):
+                code += f"{p_type.__name__}.empty(),\n"
+            elif t.get_origin(p_type) is list:
+                code += f"[],\n"
+            else:
+                code += f"{POD_DEFAULT_VALUE_MAP[p_type]},\n"
+        code += f"{tab}{tab})\n"
 
         # Custom methods
 
