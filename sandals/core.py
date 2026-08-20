@@ -6,7 +6,7 @@ from types import ModuleType
 import typing as t
 
 from sandals import config as c
-from sandals.base import BindBase
+from sandals.base import BindAttr, BindBase
 from sandals.template import MARSHAL_METHOD_NAME, SQLITE_POD_TYPE_MAP, Kind
 from sandals.util import pascal_case_to_snake_case
 
@@ -71,10 +71,13 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
             )
 
         code += f"{tab}fields: list[Field] = [\n"
-        annotations: dict[str, type] = inspect.get_annotations(tc)
+        bind_attrs = inspect.getmembers(tc, lambda x: isinstance(x, BindAttr))
+        # "p" is for "property"
         p_name: str
+        p_attr: BindAttr
         p_type: type
-        for p_name, p_type in annotations.items():
+        for p_name, p_attr in bind_attrs:
+            p_type = p_attr.type
             field_kind: str = f"{Kind.__name__}.{Kind.POD.name}"
             inner_type: type = p_type
             pod_type: type | None = None
@@ -125,7 +128,8 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
         code += f"\n"
         code += f"{tab}def __init__(\n"
         code += f"{tab}{tab}self,\n"
-        for p_name, p_type in annotations.items():
+        for p_name, p_attr in bind_attrs:
+            p_type = p_attr.type
             if t.get_origin(p_type) is list:
                 outer_type: str = "list"
                 # Assume there is only one argument to the list type
@@ -136,7 +140,8 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
         if not is_pod_wrapper:
             code += f"{tab}{tab}row_id: int = -1,\n"
         code += f"{tab}) -> None:\n"
-        for p_name, p_type in annotations.items():
+        for p_name, p_attr in bind_attrs:
+            p_type = p_attr.type
             if t.get_origin(p_type) is list:
                 outer_type: str = "list"
                 # Assume there is only one argument to the list type
@@ -152,7 +157,8 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
             code += f"{tab}{tab}if not isinstance(row_id, int):\n"
             code += f"{tab}{tab}{tab}raise TypeError(f\"'row_id' is of type {{type(row_id).__name__}}, not int\")\n"
             code += f"{tab}{tab}self.row_id: int = row_id\n"
-        for p_name, p_type in annotations.items():
+        for p_name, p_attr in bind_attrs:
+            p_type = p_attr.type
             if t.get_origin(p_type) is list:
                 outer_type: str = "list"
                 # Assume there is only one argument to the list type
@@ -168,13 +174,24 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
         code += f'{tab}{tab}return f"{{type(self).__name__}}('
         if not is_pod_wrapper:
             code += f"row_id={{self.row_id}}, "
-        code += f'{", ".join(f"{p_name}={{self.{p_name}}}" for p_name in annotations.keys())})"\n'
+        code += f'{", ".join(f"{p_name}={{self.{p_name}}}" for p_name, _ in bind_attrs)})"\n'
 
         # __eq__()
 
         code += f"\n"
         code += f'{tab}def __eq__(self, other: "{tc.__name__}") -> bool:\n'
         code += f"{tab}{tab}return all(getattr(self, f.name) == getattr(other, f.name) for f in self.fields)\n"
+
+        # empty()
+
+        code += f"\n"
+        code += f"{tab}@classmethod\n"
+        code += f'{tab}def empty(cls) -> "{tc.__name__}":\n'
+        code += f"{tab}{tab}return cls(\n"
+        for p_name, p_attr in bind_attrs:
+            code += f"{p_name}={p_attr.default_value},\n"
+        code += f"{tab}{tab}{tab}\n"
+        code += f"{tab}{tab})\n"
 
         # Custom methods
 
