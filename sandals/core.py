@@ -89,12 +89,12 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
         p_name: str
         p_type: type
         for p_name, p_type in annotations.items():
-            field_kind: str = f"{Kind.__name__}.{Kind.POD.name}"
+            field_kind: Kind = Kind.POD
             inner_type: type = p_type
             pod_type: type | None = None
 
             if p_type in tcs:
-                field_kind = Kind.__name__ + "." + Kind.DC.name
+                field_kind = Kind.DC
             elif t.get_origin(p_type) is list:
                 # Assume there is only one argument to the list type
                 inner_type = t.get_args(p_type)[0]
@@ -106,22 +106,17 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
                 elif inner_type in SQLITE_POD_TYPE_MAP:
                     pod_type = inner_type
 
-                field_kind = (
-                    Kind.__name__
-                    + "."
-                    + (
-                        Kind.STRUCTURED.name
-                        if pod_type is not None
-                        else Kind.COMPOUND.name
-                    )
-                )
+                field_kind = Kind.COMPOUND if pod_type is None else Kind.STRUCTURED
             else:
                 pod_type = inner_type
 
+            field_kind_str: str = f"{Kind.__name__}.{field_kind.name}"
             py_type: str = inner_type.__name__
 
             unmarshal: str = inner_type.__name__
-            if inner_type is datetime:
+            if field_kind in (Kind.DC, Kind.COMPOUND):
+                unmarshal = f"lambda d: {inner_type.__name__}(**d)"
+            elif inner_type is datetime:
                 unmarshal = "datetime.fromisoformat"
             elif inner_type is date:
                 unmarshal = "date.fromisoformat"
@@ -130,7 +125,7 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
                 SQLITE_POD_TYPE_MAP[pod_type].sql if pod_type is not None else "--"
             )
 
-            code += f'{tab}{tab}Field("{p_name}", {py_type}, {unmarshal}, "{sql_type}", {field_kind}),\n'
+            code += f'{tab}{tab}Field("{p_name}", {py_type}, {unmarshal}, "{sql_type}", {field_kind_str}),\n'
 
         code += f"{tab}]\n"
 
