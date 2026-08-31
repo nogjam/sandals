@@ -118,7 +118,7 @@ class DataClass:
         return fbk
 
     @classmethod
-    def from_dict_with_cast(cls, data: dict[str, t.Any]) -> "DataClass":
+    def from_dict_with_cast(cls, data: dict[str, t.Any]) -> t.Self:
         cast: dict[str, t.Any] = {}
 
         for f in cls.fields:
