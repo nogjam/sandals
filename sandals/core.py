@@ -152,7 +152,7 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
                 inner_type = t.get_args(p_type)[0]
                 code += f"{tab}{tab}if not isinstance({p_name}, {outer_type}):\n"
                 code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' is of type {{type({p_name}).__name__}}, not {outer_type}\")\n"
-                code += f"{tab}{tab}if len({p_name}) > 1 and not isinstance({p_name}[0], {inner_type.__name__}):\n"
+                code += f"{tab}{tab}if len({p_name}) > 0 and not isinstance({p_name}[0], {inner_type.__name__}):\n"
                 code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' contained type is {{type({p_name}[0]).__name__}}, not {inner_type.__name__}\")\n"
             else:
                 code += f"{tab}{tab}if not isinstance({p_name}, {p_type.__name__}):\n"
