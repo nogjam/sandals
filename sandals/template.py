@@ -63,7 +63,15 @@ class Field:
         return f"{type(self).__name__}({self.name!r}, {self.py_type.__name__}, {self.sql_type!r}, {self.kind.name})"
 
 
-class PodWrapper:
+class DictConstructible:
+    """Able to be constructed from a dict."""
+
+    @classmethod
+    def from_dict_with_cast(cls, data: dict[str, t.Any]) -> t.Self:
+        raise NotImplementedError
+
+
+class PodWrapper(DictConstructible):
     """Holds data going to and coming from SQLite databases. Said data can be
     represented as a single POD type.
 
@@ -73,7 +81,7 @@ class PodWrapper:
     fields: list[Field]
 
     @classmethod
-    def from_dict_with_cast(cls, data: dict[str, t.Any]) -> "PodWrapper":
+    def from_dict_with_cast(cls, data: dict[str, t.Any]) -> t.Self:
         cast: dict[str, t.Any] = {}
 
         for f in cls.fields:
@@ -92,7 +100,7 @@ class PodWrapper:
         return cls(**cast)
 
 
-class DataClass:
+class DataClass(DictConstructible):
     """Holds data going to and coming from SQLite databases."""
 
     table_name: str

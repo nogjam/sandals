@@ -145,6 +145,8 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
         if not is_pod_wrapper:
             code += f"{tab}{tab}row_id: int = -1,\n"
         code += f"{tab}) -> None:\n"
+        # TODO: Pre-build any DictConstructible classes from their dictionary
+        # data at this point, before doing type checks.
         for p_name, p_type in annotations.items():
             if t.get_origin(p_type) is list:
                 outer_type: str = "list"
@@ -153,6 +155,8 @@ def _generate_dataclass_code(tcs: list[type[BindBase]]) -> str:
                 code += f"{tab}{tab}if not isinstance({p_name}, {outer_type}):\n"
                 code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' is of type {{type({p_name}).__name__}}, not {outer_type}\")\n"
                 code += f"{tab}{tab}if len({p_name}) > 0 and not isinstance({p_name}[0], {inner_type.__name__}):\n"
+                code += f"{tab}{tab}{tab}if isinstance({p_name}[0], {c.CLASS_NAME_DICT_CONSTRUCTIBLE}):\n"
+                code += f"{tab}{tab}{tab}{tab}{p_name} = [{inner_type}.{c.METHOD_NAME_FROM_DICT_WITH_CAST}(d) for d in {p_name}]\n"
                 code += f"{tab}{tab}{tab}raise TypeError(f\"'{p_name}' contained type is {{type({p_name}[0]).__name__}}, not {inner_type.__name__}\")\n"
             else:
                 code += f"{tab}{tab}if not isinstance({p_name}, {p_type.__name__}):\n"
